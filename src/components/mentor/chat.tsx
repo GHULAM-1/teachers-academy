@@ -18,11 +18,13 @@ import Image from "next/image";
 interface ChatProps {
   conversationHistory?: Message[];
   recommendation?: string;
+  chatId?: string;
 }
 
 export default function Chat({
   conversationHistory = [],
   recommendation,
+  chatId,
 }: ChatProps) {
   const [displayedRecommendation, setDisplayedRecommendation] = useState("");
   const [isTyping, setIsTyping] = useState(true);
@@ -34,6 +36,7 @@ export default function Chat({
   const { messages, input, handleInputChange, handleSubmit, isLoading } =
     useChat({
       api: "/api/chat",
+      id: chatId, // Use chatId for persistence
       initialMessages: conversationHistory,
     });
 

@@ -18,27 +18,43 @@ import Image from "next/image";
 interface StepChatProps {
   onComplete?: (messages: Message[], recommendation: string) => void;
   showHero?: (show: boolean) => void;
+  chatId?: string;
+  initialMessages?: Message[];
 }
 
 const TOTAL_QUESTIONS = 8;
 
-export default function StepChat({ onComplete, showHero }: StepChatProps) {
+export default function StepChat({ onComplete, showHero, chatId, initialMessages = [] }: StepChatProps) {
   const [answer, setAnswer] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showLoader, setShowLoader] = useState(false);
   const [hasCompleted, setHasCompleted] = useState(false);
+
+
   
+  // Function to count current user answers (matching backend logic)
+  const getCurrentUserAnswerCount = (currentMessages: any[]) => {
+    return currentMessages.filter((m, i) => {
+      if (m.role !== "user") return false;
+      // Skip first empty message if it exists (matching backend logic)
+      if (i === 0 && (!m.content || m.content.trim() === "")) return false;
+      return m.content && m.content.trim() !== "";
+    }).length;
+  };
+
   const {
     messages,
     append,
     isLoading,
   } = useChat({ 
     api: "/api/chat",
+    id: chatId, // Use provided chatId for persistence
+    initialMessages, // Load existing messages if resuming
+    sendExtraMessageFields: true, // Send id and createdAt for each message
     onFinish: (message) => {
-      if (isFinalRecommendation && !hasCompleted) {
-        handleCompletion(message.content);
-      }
+      console.log(`🤖 AI response received: ${message.content.length} chars, Question: ${message.content.trim().endsWith('?')}`);
+      // Don't process completion here - let useEffect handle it after messages array is updated
     }
   });
 
@@ -47,26 +63,35 @@ export default function StepChat({ onComplete, showHero }: StepChatProps) {
   }, [messages]);
 
   useEffect(() => {
-    if (messages.length === 0) {
+    // Only start new conversation if no initial messages provided
+    if (messages.length === 0 && initialMessages.length === 0) {
       append({ role: "user", content: "" });
     }
   }, []);
 
-  const assistantMessages = messages.filter((m) => m.role === "assistant");
-  const assistantQuestions = assistantMessages.filter(m => m.content.trim().endsWith("?"));
-  const questionCount = assistantQuestions.length;
-  const lastAIMessage = assistantMessages[assistantMessages.length - 1];
+  // Calculate userAnswers using the same logic as getCurrentUserAnswerCount for consistency
+  const userAnswers = messages.filter((m, i) => {
+    if (m.role !== "user") return false;
+    // Skip first empty message if it exists (matching backend logic)
+    if (i === 0 && (!m.content || m.content.trim() === "")) return false;
+    return m.content && m.content.trim() !== "";
+  });
+  const progress = Math.min(userAnswers.length, TOTAL_QUESTIONS);
 
-  const userMessages = messages.filter((m) => m.role === "user");
-  const isAfter8thAnswer = questionCount === 8 && messages[messages.length - 1]?.role === "user";
-  const isFinalRecommendation = questionCount === 8 && lastAIMessage && !lastAIMessage.content.trim().endsWith("?");
+  // Keep these for the fallback timeout effect
+  const assistantMessages = messages.filter((m) => m.role === "assistant");
+  const lastAIMessage = assistantMessages[assistantMessages.length - 1];
 
   const handleCompletion = (recommendationText: string) => {
     if (hasCompleted) return;
     
-    const filteredMessages = messages.filter(
-      (m, i) => !(i === 0 && m.role === "user" && m.content === "")
-    );
+    const filteredMessages = messages.filter((m, i) => {
+      // Only filter out first empty message if we're starting a new chat
+      if (initialMessages.length > 0) {
+        return true; // Show all messages when resuming
+      }
+      return !(i === 0 && m.role === "user" && m.content === "");
+    });
     
     setHasCompleted(true);
     if (onComplete) {
@@ -75,29 +100,78 @@ export default function StepChat({ onComplete, showHero }: StepChatProps) {
   };
 
   useEffect(() => {
-    if (isAfter8thAnswer) setShowLoader(true);
+    // Count user answers accurately after messages array is updated
+    const actualUserAnswers = getCurrentUserAnswerCount(messages);
+    const lastMessage = messages[messages.length - 1];
+    
+    console.log(`📊 useEffect check: ${actualUserAnswers}/${TOTAL_QUESTIONS} user answers, last message: ${lastMessage?.role}, loading: ${isLoading}`);
+    
+    // Show loader when user has answered exactly 8 questions
+    if (actualUserAnswers === TOTAL_QUESTIONS && lastMessage?.role === "user" && !showLoader) {
+      console.log(`✅ User completed ${actualUserAnswers}/${TOTAL_QUESTIONS} questions, showing loader...`);
+      setShowLoader(true);
+    }
+    
+    // Check for recommendation after AI responds to 8th question
+    // The backend system prompt ensures that after 8 user responses, the AI gives the final recommendation
+    // So we can trust that any non-question response after 8 answers is the recommendation
     if (
-      showLoader &&
-      isFinalRecommendation &&
+      actualUserAnswers === TOTAL_QUESTIONS &&
+      lastMessage?.role === "assistant" &&
+      lastMessage?.content &&
+      !lastMessage.content.trim().endsWith("?") &&
+      lastMessage.content.length > 50 &&
       !hasCompleted &&
-      lastAIMessage &&
-      lastAIMessage.content.trim() !== "" &&
-      !isLoading 
+      !isLoading
     ) {
-      handleCompletion(lastAIMessage.content);
+      console.log(`🎯 Final recommendation detected with ${actualUserAnswers} user answers, completing...`);
+      handleCompletion(lastMessage.content);
     }
   }, [
-    isAfter8thAnswer,
-    showLoader,
-    isFinalRecommendation,
-    lastAIMessage,
-    hasCompleted,
     messages,
     isLoading,
+    hasCompleted,
+    showLoader,
   ]);
 
+  // Fallback: If we're stuck on loader for too long, force completion
+  useEffect(() => {
+    if (showLoader && !hasCompleted) {
+      const timeout = setTimeout(() => {
+        const actualUserAnswers = getCurrentUserAnswerCount(messages);
+        // Only force completion if we actually have 8 user answers
+        if (actualUserAnswers === TOTAL_QUESTIONS) {
+          console.log(`⚠️ Loader timeout - forcing completion with ${actualUserAnswers}/${TOTAL_QUESTIONS} answers`);
+          const recommendation = lastAIMessage?.content || 'Based on your responses, I will help you create a personalized learning plan.';
+          
+          const filteredMessages = messages.filter((m, i) => {
+            if (initialMessages.length > 0) {
+              return true;
+            }
+            return !(i === 0 && m.role === "user" && m.content === "");
+          });
+          
+          setHasCompleted(true);
+          if (onComplete) {
+            onComplete(filteredMessages, recommendation);
+          }
+        } else {
+          console.log(`⚠️ Loader timeout but only ${actualUserAnswers}/${TOTAL_QUESTIONS} answers - not completing`);
+        }
+      }, 15000); // 15 second timeout (increased for safety)
+
+      return () => clearTimeout(timeout);
+    }
+  }, [showLoader, hasCompleted, lastAIMessage, messages, initialMessages, onComplete]);
+
+  // Move showHero call to useEffect to avoid setState during render
+  useEffect(() => {
+    if (showLoader && showHero) {
+      showHero(false);
+    }
+  }, [showLoader, showHero]);
+
   if (showLoader) {
-    showHero && showHero(false);
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
         <img src={"/waiting-logo.png"} alt="Teachers Academy" />
@@ -107,15 +181,18 @@ export default function StepChat({ onComplete, showHero }: StepChatProps) {
     );
   }
 
-  const userAnswers = messages.filter(
-    (m, i) => m.role === "user" && !(i === 0 && m.content === "")
-  );
-  const progress = Math.min(userAnswers.length, TOTAL_QUESTIONS);
-
   return (
     <Card className="max-w-[800px] mx-auto mb-[32px] p-[24px]">
       <div className="w-full">
-        <div className="text-center font-bold text-[25px] text-[#02133B] mb-2">Choose Your Starting Point</div>
+        <div className="text-center font-bold text-[25px] text-[#02133B] mb-2">
+          {progress >= TOTAL_QUESTIONS ? 'Questions Complete!' : 'Choose Your Starting Point'}
+        </div>
+        <div className="text-center text-sm text-[#02133B]/70 mb-2">
+          {progress >= TOTAL_QUESTIONS 
+            ? `All ${TOTAL_QUESTIONS} questions answered! Creating your plan...` 
+            : `Question ${userAnswers.length + 1} of ${TOTAL_QUESTIONS} • Progress: ${progress}/${TOTAL_QUESTIONS}`
+          }
+        </div>
         <div className="w-full h-1.5 bg-blue-100 rounded-full overflow-hidden mb-2">
           <div
             className="h-1.5 bg-[#02133B] rounded-full transition-all duration-300"
@@ -128,7 +205,14 @@ export default function StepChat({ onComplete, showHero }: StepChatProps) {
           className="flex flex-col gap-4 py-2 min-h-[120px] max-h-[446px] overflow-y-auto scroll-smooth"
         >
           {messages
-            .filter((m, i) => !(i === 0 && m.role === "user" && m.content === ""))
+            .filter((m, i) => {
+              // Only filter out the first empty message if we're starting a new chat
+              // Don't filter when resuming from existing chat (initialMessages.length > 0)
+              if (initialMessages.length > 0) {
+                return true; // Show all messages when resuming
+              }
+              return !(i === 0 && m.role === "user" && m.content === "");
+            })
             .map((m, i) =>
               m.role === "user" ? (
                 <div key={i} className="self-start ml-8">
@@ -151,36 +235,55 @@ export default function StepChat({ onComplete, showHero }: StepChatProps) {
           onSubmit={async (e) => {
             e.preventDefault();
             if (!answer.trim() || isLoading) return;
+            
+            // Prevent submission if we already have 8 answers (allow submitting the 8th answer)
+            const currentCount = getCurrentUserAnswerCount(messages);
+            if (currentCount >= TOTAL_QUESTIONS) {
+              console.log('⚠️ Attempted to submit more than 8 answers - blocked');
+              return;
+            }
+            
+            console.log(`📝 Submitting answer ${currentCount + 1}/${TOTAL_QUESTIONS}: "${answer.substring(0, 30)}..."`);
+            
             await append({ role: "user", content: answer });
             setAnswer("");
             inputRef.current?.focus();
           }}
           className="mt-4"
         >
-          <div className="border rounded-xl flex items-center px-2 py-1 bg-white transition-shadow focus-within:ring-1 focus-within:ring-[#02133B]">
-            <Textarea
-              ref={inputRef}
-              id="answer"
-              className="resize-none min-h-[40px] border-0 focus:outline-none shadow-none flex-1 text-base"
-              placeholder="Send a message"
-              value={answer}
-              onChange={(e) => setAnswer(e.target.value)}
-              maxLength={280}
-              disabled={isLoading}
-              style={{ boxShadow: 'none' }}
-            />
-            <Button
-              type="submit"
-              size="icon"
-              className="ml-2 rounded-full bg-transparent text-[#02133B]"
-              disabled={isLoading || !answer.trim()}
-            >
-              <Send className="w-5 h-5 text-[#02133B]" />
-            </Button>
+          <div className={`border rounded-xl flex items-center px-2 py-1 transition-all ${
+            userAnswers.length >= TOTAL_QUESTIONS 
+              ? 'bg-gray-100 border-gray-300' 
+              : 'bg-white focus-within:ring-1 focus-within:ring-[#02133B]'
+          }`}>
+                      <Textarea
+            ref={inputRef}
+            id="answer"
+            className="resize-none min-h-[40px] border-0 focus:outline-none shadow-none flex-1 text-base"
+            placeholder={userAnswers.length >= TOTAL_QUESTIONS ? "All questions completed!" : `Question ${userAnswers.length + 1} of ${TOTAL_QUESTIONS}`}
+            value={answer}
+            onChange={(e) => setAnswer(e.target.value)}
+            maxLength={280}
+            disabled={isLoading || userAnswers.length >= TOTAL_QUESTIONS}
+            style={{ boxShadow: 'none' }}
+          />
+          <Button
+            type="submit"
+            size="icon"
+            className="ml-2 rounded-full bg-transparent text-[#02133B]"
+            disabled={isLoading || !answer.trim() || userAnswers.length >= TOTAL_QUESTIONS}
+          >
+            <Send className="w-5 h-5 text-[#02133B]" />
+          </Button>
           </div>
           <div className="flex justify-between text-xs text-gray-400 mt-1">
             <span>{answer.length}/280</span>
-            <span>ESC or Click to cancel</span>
+            <span>
+              {userAnswers.length >= TOTAL_QUESTIONS 
+                ? "Waiting for recommendation..." 
+                : "ESC or Click to cancel"
+              }
+            </span>
           </div>
         </form>
       </CardContent>

@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Montserrat } from "next/font/google";
 import "./globals.css";
-import LayoutContent from "@/components/layout-content";
+import AuthProvider from "@/components/auth/auth-provider";
+import ProtectedLayout from "@/components/protected-layout";
 import { cn } from "@/lib/utils";
 
 const montserrat = Montserrat({
@@ -26,9 +27,11 @@ export default function RootLayout({
         "min-h-screen bg-background font-sans antialiased",
         montserrat.variable
       )}>
-        <LayoutContent>
-          {children}
-        </LayoutContent>
+        <AuthProvider>
+          <ProtectedLayout>
+            {children}
+          </ProtectedLayout>
+        </AuthProvider>
       </body>
     </html>
   );

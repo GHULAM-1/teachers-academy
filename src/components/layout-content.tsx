@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Sidebar from "@/components/sidebar";
+import ChatHistorySidebar from "@/components/chat-history-sidebar";
 import Header from "@/components/header";
 
 interface LayoutContentProps {
@@ -19,8 +19,8 @@ export default function LayoutContent({ children }: LayoutContentProps) {
     <div className="bg-[#E4EDFF] flex justify-center">
       <div className="w-full max-w-[1440px]">
         <div className="flex h-screen gap-4 p-4">
-          {/* Sidebar */}
-          <Sidebar isCollapsed={isCollapsed} />
+          {/* Sidebar with Chat History */}
+          <ChatHistorySidebar isCollapsed={isCollapsed} />
 
           {/* Main Content */}
           <div className="flex-1 flex rounded-[16px] px-4 bg-white border-[#02133B]/20 border-[1px] flex-col overflow-hidden">
