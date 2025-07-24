@@ -72,11 +72,11 @@ export default function Mentor({ chatId, initialMessages = [] }: MentorProps) {
       const supabase = createClient();
       const { data: profile } = await supabase
         .from("profiles")
-        .select("name, address")
+        .select("preferred_name, role_title, students_and_subjects, career_goals")
         .eq("id", user.id)
         .single();
 
-      if (!profile || !profile.name || !profile.address) {
+      if (!profile || !profile.preferred_name || !profile.role_title || !profile.students_and_subjects || !profile.career_goals) {
         setNeedsProfile(true);
       }
       setProfileChecked(true);

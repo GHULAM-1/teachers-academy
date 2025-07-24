@@ -23,7 +23,6 @@ export async function POST(req: Request) {
     return new Response('Unauthorized', { status: 401 });
   }
 
-
   let messages, id;
   
   try {
@@ -48,16 +47,12 @@ export async function POST(req: Request) {
   // Count user messages to help AI track progress
   const userMessageCount = messages.filter((m, i) => {
     if (m.role !== "user") return false;
-    // Skip the initial empty message inserted by the client to trigger the first AI question
-    // (this placeholder is always the very first user message at index 0)
-    if (i === 0 && (!m.content || m.content.trim() === "")) return false;
-
-
+    // Skip the initial trigger messages
+    if (i === 0 && (!m.content || m.content.trim() === "" || m.content.trim() === "start" || m.content.trim() === "begin")) return false;
     return m.content && m.content.trim() !== "";
   }).length;
-  console.log(userMessageCount)
+
   console.log(`🔢 API user message count: ${userMessageCount}/8`);
-  console.log(`📝 All messages: ${messages.map(m => `${m.role}: "${m.content?.substring(0, 20)}..."`).join(', ')}`);
 
   // Ensure chat exists before proceeding
   const adminClient = createAdminSupabaseClient();
@@ -68,10 +63,8 @@ export async function POST(req: Request) {
     .eq('user_id', user.id)
     .single();
 
-  if (chatCheckError || !existingChat) {
-    
-    // Try to create the chat if it doesn't exist
-
+  if (chatCheckError && chatCheckError.code === 'PGRST116') {
+    // Chat doesn't exist, try to create it
     const { error: createError } = await adminClient
       .from('chats')
       .insert({
@@ -82,160 +75,191 @@ export async function POST(req: Request) {
         updated_at: new Date().toISOString()
       });
     
-    if (createError) {
+    if (createError && createError.code !== '23505') {
+      // Only fail if it's not a duplicate key error (23505 means chat already exists)
       console.error('Failed to create missing chat:', createError);
       return new Response('Chat could not be created', { status: 500 });
     }
+  } else if (chatCheckError && chatCheckError.code !== 'PGRST116') {
+    // Some other error occurred during chat check
+    console.error('Error checking chat existence:', chatCheckError);
+    return new Response('Error checking chat', { status: 500 });
   }
 
-  // Fetch user profile information
+  // Fetch user profile information (simplified)
   const { data: profile } = await adminClient
     .from('profiles')
-    .select('name, address')
+    .select('preferred_name, role_title, career_goals, biggest_obstacle')
     .eq('id', user.id)
     .single();
 
-  const userName = profile?.name || '';
-  const userAddress = profile?.address || '';
-
   const isAssessmentPhase = userMessageCount < 8;
 
-  // Transform that truncates assistant output after first '?' when in assessment phase
-  // Cast to 'any' to avoid strict type mismatch with AI SDK's StreamTextTransform
+  // Simplified transform that's more robust
   const assessmentTransform = (): any => {
     let foundQuestionMark = false;
+    let buffer = '';
+    
     return new TransformStream({
       transform(chunk: any, controller) {
-        if (foundQuestionMark) return; // drop further chunks once question sent
-
-        if (chunk?.type === 'text-delta' && typeof chunk.textDelta === 'string') {
-          const text = chunk.textDelta as string;
-          const qmIndex = text.indexOf('?');
-
-          if (qmIndex === -1) {
-            controller.enqueue(chunk);
-          } else {
-            const allowedText = text.slice(0, qmIndex + 1);
-            controller.enqueue({ ...chunk, textDelta: allowedText });
-            foundQuestionMark = true;
+        try {
+          if (foundQuestionMark) {
+            // Still process other chunk types, just not text-delta
+            if (chunk?.type !== 'text-delta') {
+              controller.enqueue(chunk);
+            }
+            return;
           }
-        } else {
-          controller.enqueue(chunk);
+
+          if (chunk?.type === 'text-delta' && typeof chunk.textDelta === 'string') {
+            buffer += chunk.textDelta;
+            const qmIndex = buffer.indexOf('?');
+            
+            if (qmIndex === -1) {
+              controller.enqueue(chunk);
+            } else {
+              // Send up to and including the question mark
+              const allowedText = buffer.slice(0, qmIndex + 1);
+              const remainingText = chunk.textDelta.slice(0, qmIndex + 1 - (buffer.length - chunk.textDelta.length));
+              
+              if (remainingText.length > 0) {
+                controller.enqueue({ ...chunk, textDelta: remainingText });
+              }
+              foundQuestionMark = true;
+            }
+          } else {
+            controller.enqueue(chunk);
+          }
+        } catch (error) {
+          console.error('Transform error:', error);
+          controller.enqueue(chunk); // Fallback: pass through
         }
       },
+      flush(controller) {
+        // Ensure stream is properly closed
+        try {
+          controller.terminate();
+        } catch (error) {
+          console.error('Transform flush error:', error);
+        }
+      }
     });
   };
   
-  const result = await streamText({
-    model: openai('gpt-4o'),
-    messages,
-    system: `You are an expert career advisor for teachers at the Teachers Academy.
+  console.log(`🤖 Using model: gpt-4o`);
+  console.log(`🔑 OpenAI API Key exists:`, !!process.env.OPENAI_API_KEY);
+  
+  try {
+    const result = await streamText({
+      model: openai('gpt-3.5-turbo'),
+      messages,
+      system: `You are an AI Mentor at Teachers Academy, designed to help teachers find their ideal career path.
 
-User Profile:
-Name: ${userName}
-Address: ${userAddress}
-You should address the user by their name (${userName}) where appropriate in the conversation.
+**USER PROFILE:**
+Name: ${profile?.preferred_name || 'there'}
+Current Role: ${profile?.role_title || 'Not specified'}
+Career Goals: ${profile?.career_goals || 'Not specified'}
+Biggest Obstacle: ${profile?.biggest_obstacle || 'Not specified'}
 
-**YOUR PRIMARY JOB:** Determine which of these three paths best fits the user:
-1. KNOWLEDGE MONETIZATION – for teachers who want to create and sell educational content, courses, or resources.
-2. CAREER ADVANCEMENT - for teachers who want to move up within the education system (admin, leadership, specialized roles).
-3. GOING INDEPENDENT – for teachers who want to start their own educational business or consultancy.
+**YOUR MISSION:** Guide users through exactly 8 questions to determine their best path among:
 
-**CURRENT STATUS: User has provided ${userMessageCount} out of 8 required responses.**
+**THE THREE PATHS:**
+1. **Teaching Business** – Build your own student base, market yourself, earn independently.
+2. **Passive Income** – Create and sell digital products like courses, materials, or memberships.
+3. **Career Change** – Transition to a new job in/outside education using your existing strengths.
 
-**PHASE 1: ASSESSMENT (Exactly 8 questions and 8 responses required)**
-CRITICAL INSTRUCTION:
-- If user responses = 0-7: Ask your next question ONLY (questions 1-8). ABSOLUTELY NO RECOMMENDATIONS, NO SUMMARIES, AND NO EXTRA TEXT.
-•⁠  ⁠If  ${userMessageCount} = 9: Give final recommendation ONLY (include CTA button as specified).
+**CURRENT STATUS:** User has provided ${userMessageCount} out of 8 required responses.
 
+${userMessageCount < 8 ? `
+**ASSESSMENT PHASE (Questions 1-8):**
 
-Current user response count: ${userMessageCount}/8
+You MUST ask these exact 8 questions in order, one at a time:
 
-${userMessageCount < 8 ? `INSTRUCTION: User has answered ${userMessageCount} questions. Ask question ${userMessageCount + 1} **in ONE sentence ending with "?"** and output NOTHING else. Do **NOT** thank, greet, summarise, or recommend anything at this stage.
+1. "Thanks for sharing your background, ${profile?.preferred_name || 'there'} - just to get a sense of what you're most focused on right now, what's one thing you'd love to change or improve in your teaching or career?"
 
-***** ABSOLUTE HARD RULES for assessment phase (<8 answers) *****
-1. Your response MUST be exactly ONE sentence ending with "?".
-2. You MAY NOT include any other text, emojis, or formatting before or after that sentence.
-3. You MAY NOT use the words "Based on", "recommendation", "CTA_BUTTON", or "Path" before 8 answers.
-4. If you break these rules, you will be considered non-compliant.
-***************************************************
-` : 'INSTRUCTION: User has completed all 8 responses. Give final recommendation now **in the exact format specified below**.'}
+2. "What would success look like for you in 6 months — financially, professionally, or personally?"
 
-If fewer than 8 responses received:
+3. "Are you open to exploring new ways to grow — even if it's outside what you've tried before?"
 
-**Assessment Rules:**
-- Ask only ONE question at a time
-- You MUST ask exactly 8 questions total before giving any recommendation
-- Each question must be a single, direct, clear sentence ending with "?"
-- Do NOT include greetings, appreciation, or extra commentary
-- Do NOT ask multiple questions in one message
-- Do NOT explain why you are asking
-- Do NOT summarize or reflect on previous answers
-- Do NOT use phrases like "Thank you", "Great", "Awesome"
-- Do NOT include any statements or recommendations before the 8th user response
-- Only ask the next question needed to determine the best path
-- NEVER give recommendations until you have received exactly 8 user responses
+4. "When you think about your biggest frustrations in your current situation, what comes to mind first?"
 
-**When giving final recommendation (only after 8 responses), use this EXACT format:**
+5. "If you could wave a magic wand and change one thing about how you earn income from your teaching skills, what would it be?"
 
-[CTA_BUTTON:button_text_here]
+6. "What part of teaching energizes you most — working directly with students, creating materials, or something else?"
 
-Based on your responses, the best path for you is [PATH NAME]. [Your detailed recommendation and next steps here...]
+7. "How do you feel about the idea of marketing yourself or your services to attract students or customers?"
 
-**CTA Button Options:**
-- If recommending KNOWLEDGE MONETIZATION: [CTA_BUTTON:Build Your Course]
-- If recommending CAREER ADVANCEMENT: [CTA_BUTTON:Chart Your Career Path]  
-- If recommending GOING INDEPENDENT: [CTA_BUTTON:Go Independent]
+8. "If you had to choose right now, would you rather: build something of your own, improve your current situation, or explore a completely different direction?"
 
-**PHASE 2: FOLLOW-UP CONVERSATION (After recommendation given)**
-Once you have provided a recommendation with [CTA_BUTTON:], switch to conversational mode:
+**CRITICAL RULES:**
+- Ask ONLY question ${userMessageCount + 1}
+- Use simple, friendly tone
+- ONE question per response ending with "?"
+- NO greetings, summaries, or extra text
+- NO recommendations until all 8 questions answered
+` : `
+**RECOMMENDATION PHASE:**
 
-**Follow-up Rules:**
-- Provide helpful, detailed responses to user questions
-- Stay focused on the three career domains above
-- Be conversational and supportive
-- Offer practical advice and actionable steps
-- You can ask clarifying questions to better help them
-- Reference their assessment and recommendation when relevant
-- Do NOT restart the assessment
-- Do NOT ask them to take another assessment
+User has completed all 8 questions. Now provide your recommendation using this EXACT format:
 
-**Response Style for Follow-up:**
-- Be warm, encouraging, and professional
-- Provide concise, actionable advice (avoid overwhelming responses)
-- Use examples and specific recommendations
-- Break down complex topics into manageable steps
+Based on your responses and your background in ${profile?.role_title || 'education'}, the path that seems like the best fit for you is: **[PATH NAME]**
 
-**CRITICAL:** Always count user responses to determine which phase you're in. Assessment phase = 8 questions only. Follow-up phase = after recommendation given.`,
-    experimental_transform: isAssessmentPhase ? assessmentTransform : undefined,
-    // Following AI SDK pattern: save messages after completion
-    async onFinish({ response }) {
-      try {
-        // Save all messages (user + AI response) to database
-        await saveChatWithUser({
-          id,
-          userId: user.id,
-          messages: appendResponseMessages({
-            messages,
-            responseMessages: response.messages,
-          }),
-          supabaseClient: adminClient, // Use admin client to bypass RLS
-        });
+[Brief explanation of why this path fits them]
 
-        // Auto-generate chat title from first user message (if this is the first exchange)
-        if (messages.length === 1 && messages[0].role === 'user') {
-          const firstMessage = messages[0].content;
-          const title = firstMessage.length > 50 
-            ? firstMessage.substring(0, 50) + '...' 
-            : firstMessage;
-          await updateChatTitleWithUser(id, title, user.id, adminClient);
+Here's what this path looks like:
+• [Next step 1]
+• [Next step 2] 
+• [Next step 3]
+
+Ready to get started? [CTA_BUTTON:Start Your Journey]
+
+**Path Options:**
+- **Teaching Business**
+- **Passive Income**
+- **Career Change**
+`}
+
+**FOLLOW-UP CONVERSATION (After recommendation):**
+Once recommendation is given, switch to conversational mode:
+- Answer questions about their chosen path
+- Provide practical next steps
+- Be encouraging and supportive`,
+      // TEMPORARILY REMOVE TRANSFORM TO TEST
+      // experimental_transform: isAssessmentPhase ? assessmentTransform : undefined,
+      async onFinish({ response }) {
+        try {
+          await saveChatWithUser({
+            id,
+            userId: user.id,
+            messages: appendResponseMessages({
+              messages,
+              responseMessages: response.messages,
+            }),
+            supabaseClient: adminClient,
+          });
+
+          if (messages.length === 1 && messages[0].role === 'user') {
+            const title = "AI Mentor Session";
+            console.log("Setting title:", title);
+            await updateChatTitleWithUser(id, title, user.id, adminClient);
+          }
+        } catch (error) {
+          console.error('Error saving chat:', error);
         }
-      } catch (error) {
-        console.error('Error saving chat:', error);
-        // Don't throw - we don't want to break the response stream
-      }
-    },
-  });
-
-  return result.toDataStreamResponse();
+      },
+    });
+    
+    console.log("Stream result created successfully");
+    return result.toDataStreamResponse();
+    
+  } catch (error) {
+    console.error('🚨 StreamText error:', error);
+    return new Response(JSON.stringify({
+      error: 'StreamText failed',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    }), { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
 }

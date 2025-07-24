@@ -195,12 +195,10 @@ function ChatHistorySidebarContent({
     return `AI MENTOR CHAT ${index + 1}`;
   };
 
-
-
   return (
     <div className={cn("text-white h-full flex flex-col", className)}>
       {/* Logo */}
-      <div className="p-4">
+      <div className="p-4 flex-shrink-0">
         <div className="flex items-center gap-3">
           <div className="rounded-lg flex items-center justify-center flex-shrink-0">
             {isCollapsed ? (
@@ -222,8 +220,8 @@ function ChatHistorySidebarContent({
         </div>
       </div>
 
-      <ScrollArea className="flex-1 px-3">
-        {/* Main Navigation */}
+      {/* Main Navigation - Fixed height section */}
+      <div className="flex-shrink-0 px-3">
         <div className="space-y-2 py-4">
           {sidebarItems.map((item) => {
             const Icon = item.icon;
@@ -251,14 +249,16 @@ function ChatHistorySidebarContent({
             );
           })}
         </div>
+      </div>
 
-        {/* Chat History Section */}
-        {!isCollapsed && (
-          <>
-            <Separator className="my-4 bg-[#02133B]/20" />
-            
-                          <div className="space-y-2">
-                {/* Chat History Header */}
+      {/* Chat History Section - Scrollable with max height */}
+      {!isCollapsed && (
+        <>
+          <Separator className="mx-3 bg-[#02133B]/20 flex-shrink-0" />
+          
+          <div className="flex-1 flex flex-col min-h-0 px-3">
+            {/* Chat History Header - Fixed */}
+            <div className="flex-shrink-0 py-4">
               <div className="px-3 py-2 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-semibold text-[#02133B]">AI Mentor Chats</h3>
@@ -272,68 +272,72 @@ function ChatHistorySidebarContent({
                   </span>
                 )}
               </div>
-
-              {/* Chat List */}
-              <div className="space-y-1">
-                {isLoading ? (
-                  <div className="px-3 py-2 text-sm text-[#02133B]/60">Loading chats...</div>
-                ) : chats.length === 0 ? (
-                  <div className="px-3 py-2 text-sm text-[#02133B]/60">
-                    <div className="text-center">
-                      <MessageSquare className="w-6 h-6 mx-auto mb-1 opacity-50" />
-                      <p>No chats yet</p>
-                      <p className="text-xs mt-1">Start a new conversation!</p>
-                    </div>
-                  </div>
-                ) : (
-                  chats.slice(0, 15).map((chat, index) => {
-                    const isActiveChat = pathname === `/mentor/chat/${chat.id}`;
-                    const chatTitle = generateChatTitle(index);
-                    const creationDate = formatCreationDate(chat.created_at);
-                    
-                    return (
-                      <Button
-                        key={chat.id}
-                        variant="ghost"
-                        className={cn(
-                          "w-full justify-start h-auto p-3 text-left group transition-all duration-200",
-                          isActiveChat
-                            ? "bg-[#02133B] text-white hover:bg-[#02133B]"
-                            : "text-[#02133B] hover:bg-[#02133B]/10"
-                        )}
-                        asChild
-                      >
-                        <Link href={`/mentor/chat/${chat.id}`}>
-                          <div className="flex flex-col gap-1.5 w-full">
-                            <div className="flex items-center gap-2">
-                              <MessageSquare className="w-3.5 h-3.5 flex-shrink-0 opacity-70" />
-                              <span className="text-sm font-medium truncate">
-                                {chatTitle}
-                              </span>
-                            </div>
-                            <div className="flex flex-col gap-0.5">
-                              <span className="text-xs opacity-70">
-                                Created: {creationDate}
-                              </span>
-                              <span className="text-xs opacity-60">
-                                {formatDate(chat.updated_at)}
-                              </span>
-                            </div>
-                          </div>
-                        </Link>
-                      </Button>
-                    );
-                  })
-                )}
-              </div>
             </div>
-          </>
-        )}
-      </ScrollArea>
 
-      {/* User Info Section */}
+            {/* Chat List - Scrollable */}
+            <div className="flex-1 min-h-0">
+              <ScrollArea className="h-full">
+                <div className="space-y-1 pb-4">
+                  {isLoading ? (
+                    <div className="px-3 py-2 text-sm text-[#02133B]/60">Loading chats...</div>
+                  ) : chats.length === 0 ? (
+                    <div className="px-3 py-2 text-sm text-[#02133B]/60">
+                      <div className="text-center">
+                        <MessageSquare className="w-6 h-6 mx-auto mb-1 opacity-50" />
+                        <p>No chats yet</p>
+                        <p className="text-xs mt-1">Start a new conversation!</p>
+                      </div>
+                    </div>
+                  ) : (
+                    chats.slice(0, 15).map((chat, index) => {
+                      const isActiveChat = pathname === `/mentor/chat/${chat.id}`;
+                      const chatTitle = generateChatTitle(index);
+                      const creationDate = formatCreationDate(chat.created_at);
+                      
+                      return (
+                        <Button
+                          key={chat.id}
+                          variant="ghost"
+                          className={cn(
+                            "w-full justify-start h-auto p-3 text-left group transition-all duration-200",
+                            isActiveChat
+                              ? "bg-[#02133B] text-white hover:bg-[#02133B]"
+                              : "text-[#02133B] hover:bg-[#02133B]/10"
+                          )}
+                          asChild
+                        >
+                          <Link href={`/mentor/chat/${chat.id}`}>
+                            <div className="flex flex-col gap-1.5 w-full">
+                              <div className="flex items-center gap-2">
+                                <MessageSquare className="w-3.5 h-3.5 flex-shrink-0 opacity-70" />
+                                <span className="text-sm font-medium truncate">
+                                  {chatTitle}
+                                </span>
+                              </div>
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-xs opacity-70">
+                                  Created: {creationDate}
+                                </span>
+                                <span className="text-xs opacity-60">
+                                  {formatDate(chat.updated_at)}
+                                </span>
+                              </div>
+                            </div>
+                          </Link>
+                        </Button>
+                      );
+                    })
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* User Info Section - Fixed at bottom */}
       {!isCollapsed && user && (
-        <div className="p-3 border-t border-[#02133B]/20">
+        <div className="flex-shrink-0 p-3 border-t border-[#02133B]/20">
           <div className="flex items-center gap-3 p-2 rounded-lg bg-[#E4EDFF]/50">
             <div className="w-8 h-8 rounded-full bg-[#02133B] flex items-center justify-center">
               <User className="w-4 h-4 text-white" />
@@ -397,4 +401,4 @@ export default function ChatHistorySidebar({
       </Sheet>
     </>
   );
-} 
+}

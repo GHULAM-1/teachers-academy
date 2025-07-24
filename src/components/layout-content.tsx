@@ -3,6 +3,7 @@
 import { useState } from "react";
 import ChatHistorySidebar from "@/components/chat-history-sidebar";
 import Header from "@/components/header";
+import Sidebar from "./sidebar";
 
 interface LayoutContentProps {
   children: React.ReactNode;
@@ -20,7 +21,8 @@ export default function LayoutContent({ children }: LayoutContentProps) {
       <div className="w-full max-w-[1440px]">
         <div className="flex h-screen gap-4 p-4">
           {/* Sidebar with Chat History */}
-          <ChatHistorySidebar isCollapsed={isCollapsed} />
+          {/* <ChatHistorySidebar isCollapsed={isCollapsed} /> */}
+          <Sidebar isCollapsed={isCollapsed} />
 
           {/* Main Content */}
           <div className="flex-1 flex rounded-[16px] px-4 bg-white border-[#02133B]/20 border-[1px] flex-col overflow-hidden">

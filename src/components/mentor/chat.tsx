@@ -93,12 +93,18 @@ export default function Chat({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, displayedRecommendation, newMessages, isLoading]);
   const handleCtaClick = () => {
-    if (ctaButton === "Build Your Course") {
-      window.location.href = "/course";
-    } else if (ctaButton === "Chart Your Career Path") {
-      window.location.href = "/career-growth";
-    } else if (ctaButton === "Go Independent") {
-      window.location.href = "/independent";
+    // Check the recommendation text to determine which path was recommended
+    const recommendationLower = cleanRecommendation.toLowerCase();
+    
+    if (recommendationLower.includes("passive income")) {
+      window.location.href = "/passive-income";
+    } else if (recommendationLower.includes("career change")) {
+      window.location.href = "/career-change";
+    } else if (recommendationLower.includes("teaching business")) {
+      window.location.href = "/teaching";
+    } else {
+      // Default fallback - could be improved based on button text
+      window.location.href = "/mentor";
     }
   };
 
