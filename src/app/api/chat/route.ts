@@ -1,10 +1,12 @@
 import { openai } from '@ai-sdk/openai';
 import { TransformStream } from 'stream/web';
-import { streamText, appendResponseMessages } from 'ai';
+import { appendResponseMessages } from 'ai';
 import { saveChat, updateChatTitle, saveChatWithUser, updateChatTitleWithUser } from '@/lib/chat-store';
 import { createServerSupabaseClient, createAdminSupabaseClient } from '@/lib/supabase';
 import { cookies } from 'next/headers';
 import dotenv from 'dotenv';
+import { streamText } from 'ai';
+
 
 dotenv.config();
 
@@ -82,7 +84,8 @@ export async function POST(req: Request) {
         updated_at: new Date().toISOString()
       });
     
-    if (createError) {
+    if (createError && createError.code !== '23505') {
+      // Only fail if it's not a duplicate key error (23505 means chat already exists)
       console.error('Failed to create missing chat:', createError);
       return new Response('Chat could not be created', { status: 500 });
     }
@@ -209,33 +212,42 @@ Once you have provided a recommendation with [CTA_BUTTON:], switch to conversati
 **CRITICAL:** Always count user responses to determine which phase you're in. Assessment phase = 8 questions only. Follow-up phase = after recommendation given.`,
     experimental_transform: isAssessmentPhase ? assessmentTransform : undefined,
     // Following AI SDK pattern: save messages after completion
-    async onFinish({ response }) {
-      try {
-        // Save all messages (user + AI response) to database
-        await saveChatWithUser({
-          id,
-          userId: user.id,
-          messages: appendResponseMessages({
-            messages,
-            responseMessages: response.messages,
-          }),
-          supabaseClient: adminClient, // Use admin client to bypass RLS
-        });
+    // async onFinish({ response }) {
+    //   try {
+    //     // Save all messages (user + AI response) to database
+    //     await saveChatWithUser({
+    //       id,
+    //       userId: user.id,
+    //       messages: appendResponseMessages({
+    //         messages,
+    //         responseMessages: response.messages,
+    //       }),
+    //       supabaseClient: adminClient, // Use admin client to bypass RLS
+    //     });
 
-        // Auto-generate chat title from first user message (if this is the first exchange)
-        if (messages.length === 1 && messages[0].role === 'user') {
-          const firstMessage = messages[0].content;
-          const title = firstMessage.length > 50 
-            ? firstMessage.substring(0, 50) + '...' 
-            : firstMessage;
-          await updateChatTitleWithUser(id, title, user.id, adminClient);
-        }
-      } catch (error) {
-        console.error('Error saving chat:', error);
-        // Don't throw - we don't want to break the response stream
-      }
-    },
+    //     // Auto-generate chat title from first user message (if this is the first exchange)
+    //     if (messages.length === 1 && messages[0].role === 'user') {
+    //       const firstMessage = messages[0].content;
+    //       const title = firstMessage.length > 50 
+    //         ? firstMessage.substring(0, 50) + '...' 
+    //         : firstMessage;
+    //       await updateChatTitleWithUser(id, title, user.id, adminClient);
+    //     }
+    //   } catch (error) {
+    //     console.error('Error saving chat:', error);
+    //     // Don't throw - we don't want to break the response stream
+    //   }
+    // },
   });
 
-  return result.toDataStreamResponse();
-}
+  const streamResponse = result.toDataStreamResponse({
+    getErrorMessage: (error) => {
+      if (error instanceof Error) return error.message;
+      if (typeof error === 'string') return error;
+      return 'Unknown error: ' + JSON.stringify(error);
+    }
+  });
+  
+  streamResponse.headers.set('Content-Type', 'application/ai-data-stream');
+  return streamResponse;
+    }
