@@ -61,6 +61,12 @@ const sidebarItems: SidebarItem[] = [
     href: "/independent",
     icon: Rocket,
   },
+  {
+    id: "profile",
+    label: "User Profile",
+    href: "/user-profile",
+    icon: User,
+  },
 ];
 
 interface ChatHistorySidebarContentProps {

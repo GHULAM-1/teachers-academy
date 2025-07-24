@@ -7,6 +7,10 @@ import { Message } from "ai/react";
 import StepChat from "./step-chat";
 import Chat from "./chat";
 import { MessageSquare } from "lucide-react";
+import { useAuth } from "@/components/auth/auth-provider";
+import { createClient } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
 
 interface MentorProps {
   chatId?: string;
@@ -20,6 +24,10 @@ export default function Mentor({ chatId, initialMessages = [] }: MentorProps) {
   const [recommendation, setRecommendation] = useState<string>('');
   const [initialStepChatMessages, setInitialStepChatMessages] = useState<Message[]>([]);
   const [hasResumedState, setHasResumedState] = useState(false);
+  const { user } = useAuth();
+  const router = useRouter();
+  const [profileChecked, setProfileChecked] = useState(false);
+  const [needsProfile, setNeedsProfile] = useState(false);
 
   // Analyze initial messages to determine state
   useEffect(() => {
@@ -56,6 +64,51 @@ export default function Mentor({ chatId, initialMessages = [] }: MentorProps) {
       }
     }
   }, [initialMessages, hasResumedState]);
+
+  // Check if profile is filled
+  useEffect(() => {
+    const checkProfile = async () => {
+      if (!user) return;
+      const supabase = createClient();
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("name, address")
+        .eq("id", user.id)
+        .single();
+
+      if (!profile || !profile.name || !profile.address) {
+        setNeedsProfile(true);
+      }
+      setProfileChecked(true);
+    };
+
+    checkProfile();
+  }, [user]);
+
+  if (!profileChecked) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  if (needsProfile) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm mx-auto text-center">
+          <h2 className="text-xl font-bold mb-4 text-[#02133B]">Complete Your Profile</h2>
+          <p className="mb-6 text-[#02133B]">Please fill out your profile before talking to the AI Mentor.</p>
+          <Button
+            onClick={() => router.push("/user-profile")}
+            className="w-full bg-[#02133B] text-white hover:bg-[#02133B]/90"
+          >
+            Go to Profile
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const handleStepComplete = (allMessages: Message[], recommendationText: string) => {
     setConversationHistory(allMessages);

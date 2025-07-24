@@ -1,4 +1,5 @@
 import { openai } from '@ai-sdk/openai';
+import { TransformStream } from 'stream/web';
 import { streamText, appendResponseMessages } from 'ai';
 import { saveChat, updateChatTitle, saveChatWithUser, updateChatTitleWithUser } from '@/lib/chat-store';
 import { createServerSupabaseClient, createAdminSupabaseClient } from '@/lib/supabase';
@@ -21,6 +22,7 @@ export async function POST(req: Request) {
   if (authError || !user) {
     return new Response('Unauthorized', { status: 401 });
   }
+
 
   let messages, id;
   
@@ -49,9 +51,11 @@ export async function POST(req: Request) {
     // Skip the initial empty message inserted by the client to trigger the first AI question
     // (this placeholder is always the very first user message at index 0)
     if (i === 0 && (!m.content || m.content.trim() === "")) return false;
+
+
     return m.content && m.content.trim() !== "";
   }).length;
-  
+  console.log(userMessageCount)
   console.log(`🔢 API user message count: ${userMessageCount}/8`);
   console.log(`📝 All messages: ${messages.map(m => `${m.role}: "${m.content?.substring(0, 20)}..."`).join(', ')}`);
 
@@ -65,7 +69,9 @@ export async function POST(req: Request) {
     .single();
 
   if (chatCheckError || !existingChat) {
+    
     // Try to create the chat if it doesn't exist
+
     const { error: createError } = await adminClient
       .from('chats')
       .insert({
@@ -82,10 +88,53 @@ export async function POST(req: Request) {
     }
   }
 
+  // Fetch user profile information
+  const { data: profile } = await adminClient
+    .from('profiles')
+    .select('name, address')
+    .eq('id', user.id)
+    .single();
+
+  const userName = profile?.name || '';
+  const userAddress = profile?.address || '';
+
+  const isAssessmentPhase = userMessageCount < 8;
+
+  // Transform that truncates assistant output after first '?' when in assessment phase
+  // Cast to 'any' to avoid strict type mismatch with AI SDK's StreamTextTransform
+  const assessmentTransform = (): any => {
+    let foundQuestionMark = false;
+    return new TransformStream({
+      transform(chunk: any, controller) {
+        if (foundQuestionMark) return; // drop further chunks once question sent
+
+        if (chunk?.type === 'text-delta' && typeof chunk.textDelta === 'string') {
+          const text = chunk.textDelta as string;
+          const qmIndex = text.indexOf('?');
+
+          if (qmIndex === -1) {
+            controller.enqueue(chunk);
+          } else {
+            const allowedText = text.slice(0, qmIndex + 1);
+            controller.enqueue({ ...chunk, textDelta: allowedText });
+            foundQuestionMark = true;
+          }
+        } else {
+          controller.enqueue(chunk);
+        }
+      },
+    });
+  };
+  
   const result = await streamText({
     model: openai('gpt-4o'),
     messages,
     system: `You are an expert career advisor for teachers at the Teachers Academy.
+
+User Profile:
+Name: ${userName}
+Address: ${userAddress}
+You should address the user by their name (${userName}) where appropriate in the conversation.
 
 **YOUR PRIMARY JOB:** Determine which of these three paths best fits the user:
 1. KNOWLEDGE MONETIZATION – for teachers who want to create and sell educational content, courses, or resources.
@@ -96,12 +145,21 @@ export async function POST(req: Request) {
 
 **PHASE 1: ASSESSMENT (Exactly 8 questions and 8 responses required)**
 CRITICAL INSTRUCTION:
-- If user responses = 0-7: Ask your next question ONLY (questions 1-8)
-- If user responses = 8: Give final recommendation ONLY
+- If user responses = 0-7: Ask your next question ONLY (questions 1-8). ABSOLUTELY NO RECOMMENDATIONS, NO SUMMARIES, AND NO EXTRA TEXT.
+•⁠  ⁠If  ${userMessageCount} = 9: Give final recommendation ONLY (include CTA button as specified).
+
 
 Current user response count: ${userMessageCount}/8
 
-${userMessageCount < 8 ? `INSTRUCTION: User has answered ${userMessageCount} questions. Ask question ${userMessageCount + 1} now. Do NOT give any recommendation yet.` : 'INSTRUCTION: User has completed all 8 responses. Give final recommendation now.'}
+${userMessageCount < 8 ? `INSTRUCTION: User has answered ${userMessageCount} questions. Ask question ${userMessageCount + 1} **in ONE sentence ending with "?"** and output NOTHING else. Do **NOT** thank, greet, summarise, or recommend anything at this stage.
+
+***** ABSOLUTE HARD RULES for assessment phase (<8 answers) *****
+1. Your response MUST be exactly ONE sentence ending with "?".
+2. You MAY NOT include any other text, emojis, or formatting before or after that sentence.
+3. You MAY NOT use the words "Based on", "recommendation", "CTA_BUTTON", or "Path" before 8 answers.
+4. If you break these rules, you will be considered non-compliant.
+***************************************************
+` : 'INSTRUCTION: User has completed all 8 responses. Give final recommendation now **in the exact format specified below**.'}
 
 If fewer than 8 responses received:
 
@@ -114,9 +172,10 @@ If fewer than 8 responses received:
 - Do NOT explain why you are asking
 - Do NOT summarize or reflect on previous answers
 - Do NOT use phrases like "Thank you", "Great", "Awesome"
-- Do NOT use introductory or closing statements
+- Do NOT include any statements or recommendations before the 8th user response
 - Only ask the next question needed to determine the best path
 - NEVER give recommendations until you have received exactly 8 user responses
+
 **When giving final recommendation (only after 8 responses), use this EXACT format:**
 
 [CTA_BUTTON:button_text_here]
@@ -148,6 +207,7 @@ Once you have provided a recommendation with [CTA_BUTTON:], switch to conversati
 - Break down complex topics into manageable steps
 
 **CRITICAL:** Always count user responses to determine which phase you're in. Assessment phase = 8 questions only. Follow-up phase = after recommendation given.`,
+    experimental_transform: isAssessmentPhase ? assessmentTransform : undefined,
     // Following AI SDK pattern: save messages after completion
     async onFinish({ response }) {
       try {
