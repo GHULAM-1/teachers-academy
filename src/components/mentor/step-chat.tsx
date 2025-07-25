@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useChat, Message } from "ai/react";
+import { useChat, Message } from "@ai-sdk/react";
 import {
   Card,
   CardHeader,
@@ -33,12 +33,12 @@ export default function StepChat({ onComplete, showHero, chatId, initialMessages
 
 
   
-  // Function to count current user answers (matching backend logic)
+  // Function to count current user answers (matching backend logic EXACTLY)
   const getCurrentUserAnswerCount = (currentMessages: any[]) => {
     return currentMessages.filter((m, i) => {
       if (m.role !== "user") return false;
-      // Skip first empty message if it exists (matching backend logic)
-      if (i === 0 && (!m.content || m.content.trim() === "")) return false;
+      // Skip the initial trigger messages (matching backend logic EXACTLY)
+      if (i === 0 && (!m.content || m.content.trim() === "" || m.content.trim() === "start" || m.content.trim() === "begin")) return false;
       return m.content && m.content.trim() !== "";
     }).length;
   };
@@ -47,7 +47,9 @@ export default function StepChat({ onComplete, showHero, chatId, initialMessages
     messages,
     append,
     isLoading,
+    error,
   } = useChat({ 
+    maxSteps: 10,
     api: "/api/chat",
     id: chatId, // Use provided chatId for persistence
     initialMessages, // Load existing messages if resuming
@@ -55,6 +57,10 @@ export default function StepChat({ onComplete, showHero, chatId, initialMessages
     onFinish: (message) => {
       console.log(`🤖 AI response received: ${message.content.length} chars, Question: ${message.content.trim().endsWith('?')}`);
       // Don't process completion here - let useEffect handle it after messages array is updated
+    },
+    onError: (error) => {
+      console.error('🚨 useChat error:', error);
+      console.error('🚨 Error details:', JSON.stringify(error, null, 2));
     }
   });
 
@@ -65,15 +71,23 @@ export default function StepChat({ onComplete, showHero, chatId, initialMessages
   useEffect(() => {
     // Only start new conversation if no initial messages provided
     if (messages.length === 0 && initialMessages.length === 0) {
-      append({ role: "user", content: "" });
+      console.log('🚀 StepChat: Auto-starting with "begin" message');
+      append({ role: "user", content: "begin" });
     }
   }, []);
+
+  // Debug error state
+  useEffect(() => {
+    if (error) {
+      console.error('🚨 StepChat error state:', error);
+    }
+  }, [error]);
 
   // Calculate userAnswers using the same logic as getCurrentUserAnswerCount for consistency
   const userAnswers = messages.filter((m, i) => {
     if (m.role !== "user") return false;
-    // Skip first empty message if it exists (matching backend logic)
-    if (i === 0 && (!m.content || m.content.trim() === "")) return false;
+    // Skip first trigger message if it exists (matching backend logic)
+    if (i === 0 && (!m.content || m.content.trim() === "" || m.content.trim() === "begin")) return false;
     return m.content && m.content.trim() !== "";
   });
   const progress = Math.min(userAnswers.length, TOTAL_QUESTIONS);
@@ -86,11 +100,11 @@ export default function StepChat({ onComplete, showHero, chatId, initialMessages
     if (hasCompleted) return;
     
     const filteredMessages = messages.filter((m, i) => {
-      // Only filter out first empty message if we're starting a new chat
+      // Only filter out first trigger message if we're starting a new chat
       if (initialMessages.length > 0) {
         return true; // Show all messages when resuming
       }
-      return !(i === 0 && m.role === "user" && m.content === "");
+      return !(i === 0 && m.role === "user" && (m.content === "" || m.content === "begin"));
     });
     
     setHasCompleted(true);
@@ -105,6 +119,7 @@ export default function StepChat({ onComplete, showHero, chatId, initialMessages
     const lastMessage = messages[messages.length - 1];
     
     console.log(`📊 useEffect check: ${actualUserAnswers}/${TOTAL_QUESTIONS} user answers, last message: ${lastMessage?.role}, loading: ${isLoading}`);
+    console.log(`📋 All messages:`, messages.map((m, i) => `${i}: ${m.role} - "${m.content?.substring(0, 50)}..."`));
     
     // Show loader when user has answered exactly 8 questions
     if (actualUserAnswers === TOTAL_QUESTIONS && lastMessage?.role === "user" && !showLoader) {
@@ -124,7 +139,9 @@ export default function StepChat({ onComplete, showHero, chatId, initialMessages
       !hasCompleted &&
       !isLoading
     ) {
-      console.log(`🎯 Final recommendation detected with ${actualUserAnswers} user answers, completing...`);
+      console.log(`🎯 Final recommendation detected with ${actualUserAnswers} user answers`);
+      console.log(`📄 Recommendation content:`, lastMessage.content);
+      console.log(`🔍 Has CTA_BUTTON:`, lastMessage.content.includes('[CTA_BUTTON:'));
       handleCompletion(lastMessage.content);
     }
   }, [
@@ -148,7 +165,7 @@ export default function StepChat({ onComplete, showHero, chatId, initialMessages
             if (initialMessages.length > 0) {
               return true;
             }
-            return !(i === 0 && m.role === "user" && m.content === "");
+            return !(i === 0 && m.role === "user" && (m.content === "" || m.content === "begin"));
           });
           
           setHasCompleted(true);
@@ -177,6 +194,11 @@ export default function StepChat({ onComplete, showHero, chatId, initialMessages
         <img src={"/waiting-logo.png"} alt="Teachers Academy" />
         <h2 className="mt-[32px] text-[25px] font-bold text-[#02133B]">Crafting Your Personalized Plan</h2>
         <p className="mt-[32px] text-[16px] text-[#02133B]">This will just take a moment...</p>
+        {error && (
+          <div className="mt-4 p-3 bg-red-100 border border-red-300 rounded text-red-700 text-sm">
+            Error: {error.message || 'Something went wrong'}
+          </div>
+        )}
       </div>
     );
   }
@@ -206,12 +228,12 @@ export default function StepChat({ onComplete, showHero, chatId, initialMessages
         >
           {messages
             .filter((m, i) => {
-              // Only filter out the first empty message if we're starting a new chat
+              // Only filter out the first trigger message if we're starting a new chat
               // Don't filter when resuming from existing chat (initialMessages.length > 0)
               if (initialMessages.length > 0) {
                 return true; // Show all messages when resuming
               }
-              return !(i === 0 && m.role === "user" && m.content === "");
+              return !(i === 0 && m.role === "user" && (m.content === "" || m.content === "begin"));
             })
             .map((m, i) =>
               m.role === "user" ? (
@@ -229,6 +251,13 @@ export default function StepChat({ onComplete, showHero, chatId, initialMessages
                 </div>
               )
             )}
+          
+          {error && (
+            <div className="mx-4 p-3 bg-red-100 border border-red-300 rounded text-red-700 text-sm">
+              ⚠️ Error: {error.message || 'Something went wrong with the AI response'}
+            </div>
+          )}
+          
           <div ref={messagesEndRef} />
         </div>
         <form
@@ -263,6 +292,21 @@ export default function StepChat({ onComplete, showHero, chatId, initialMessages
             placeholder={userAnswers.length >= TOTAL_QUESTIONS ? "All questions completed!" : `Question ${userAnswers.length + 1} of ${TOTAL_QUESTIONS}`}
             value={answer}
             onChange={(e) => setAnswer(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (!answer.trim() || isLoading || userAnswers.length >= TOTAL_QUESTIONS) return;
+                
+                const currentCount = getCurrentUserAnswerCount(messages);
+                if (currentCount >= TOTAL_QUESTIONS) return;
+                
+                // Trigger form submission
+                const form = e.currentTarget.closest('form');
+                if (form) {
+                  form.requestSubmit();
+                }
+              }
+            }}
             maxLength={280}
             disabled={isLoading || userAnswers.length >= TOTAL_QUESTIONS}
             style={{ boxShadow: 'none' }}

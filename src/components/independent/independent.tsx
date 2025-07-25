@@ -1,3 +1,5 @@
+"use client";
+
 import Hero from "../hero";
 import { Separator } from "@radix-ui/react-separator";
 import FeatureCards, { FeatureCard } from "../cards";

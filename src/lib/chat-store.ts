@@ -110,18 +110,23 @@ export async function saveChat({
       created_at: msg.createdAt?.toISOString() || new Date().toISOString()
     }));
 
-    // Delete existing messages for this chat (to handle updates)
-    await supabase
+    // NEVER delete existing messages - only insert new ones that don't exist
+    // Get existing message IDs to avoid duplicates
+    const { data: existingMessages } = await supabase
       .from('messages')
-      .delete()
+      .select('id')
       .eq('chat_id', id)
-      .eq('user_id', user.id); // Only delete user's own messages
+      .eq('user_id', user.id);
 
-    // Insert all messages
-    if (messagesToInsert.length > 0) {
+    const existingIds = new Set((existingMessages || []).map((msg: any) => msg.id));
+    
+    // Only insert messages that don't already exist
+    const newMessages = messagesToInsert.filter((msg: any) => !existingIds.has(msg.id));
+
+    if (newMessages.length > 0) {
       const { error } = await supabase
         .from('messages')
-        .insert(messagesToInsert);
+        .insert(newMessages);
 
       if (error) {
         throw new Error(`Failed to save messages: ${error.message}`);
@@ -291,18 +296,23 @@ export async function saveChatWithUser({
       };
     });
 
-    // Delete existing messages for this chat (to handle updates)
-    await supabase
+    // NEVER delete existing messages - only insert new ones that don't exist
+    // Get existing message IDs to avoid duplicates
+    const { data: existingMessages } = await supabase
       .from('messages')
-      .delete()
+      .select('id')
       .eq('chat_id', id)
-      .eq('user_id', userId); // Only delete user's own messages
+      .eq('user_id', userId);
 
-    // Insert all messages
-    if (messagesToInsert.length > 0) {
+    const existingIds = new Set((existingMessages || []).map((msg: any) => msg.id));
+    
+    // Only insert messages that don't already exist
+    const newMessages = messagesToInsert.filter((msg: any) => !existingIds.has(msg.id));
+
+    if (newMessages.length > 0) {
       const { error } = await supabase
         .from('messages')
-        .insert(messagesToInsert);
+        .insert(newMessages);
 
       if (error) {
         throw new Error(`Failed to save messages: ${error.message}`);

@@ -9,9 +9,16 @@ Create a file named `.env.local` in your project root with the following content
 # Teachers Academy Environment Variables
 # ===================================
 
-# OpenAI Configuration
+# AI Model Configuration
+# Choose ONE of the following:
+
+# Option 1: OpenAI (if you want to use ChatGPT models)
 # Get this from: https://platform.openai.com/api-keys
 OPENAI_API_KEY=sk-proj-your_actual_openai_api_key_here
+
+# Option 2: Google AI (if you want to use Gemini models) - Currently Active
+# Get this from: https://aistudio.google.com/app/apikey
+GOOGLE_GENERATIVE_AI_API_KEY=your_actual_google_ai_api_key_here
 
 # Supabase Configuration
 # Get these from: Supabase Dashboard → Settings → API
@@ -25,13 +32,20 @@ SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
 
 ## How to Get Each Key:
 
-### 1. OpenAI API Key
+### 1a. OpenAI API Key (Optional)
 1. Go to [platform.openai.com](https://platform.openai.com)
 2. Sign in to your account
 3. Navigate to **API Keys** section
 4. Click **"Create new secret key"**
 5. Copy the key (starts with `sk-proj-` or `sk-`)
 6. Paste as `OPENAI_API_KEY` value
+
+### 1b. Google AI API Key (Currently Active)
+1. Go to [Google AI Studio](https://aistudio.google.com/app/apikey)
+2. Sign in with your Google account
+3. Click **"Create API Key"**
+4. Copy the generated API key
+5. Paste as `GOOGLE_GENERATIVE_AI_API_KEY` value
 
 ### 2. Supabase Project URL
 1. Go to your [Supabase Dashboard](https://supabase.com/dashboard)
@@ -54,7 +68,12 @@ SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
 
 ```env
 # Example (replace with your actual values)
-OPENAI_API_KEY=sk-proj-AbCdEfGhIjKlMnOpQrStUvWxYz1234567890
+# Currently using Google AI - only need this one:
+GOOGLE_GENERATIVE_AI_API_KEY=AIzaSyAbCdEfGhIjKlMnOpQrStUvWxYz1234567890
+
+# Optional - only if switching back to OpenAI:
+# OPENAI_API_KEY=sk-proj-AbCdEfGhIjKlMnOpQrStUvWxYz1234567890
+
 NEXT_PUBLIC_SUPABASE_URL=https://abcdefghijklmnop.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFiY2RlZmdoaWprbG1ub3AiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTYzMjc2ODAwMCwiZXhwIjoxOTQ4MzQ0MDAwfQ.example_signature_here
 SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFiY2RlZmdoaWprbG1ub3AiLCJyb2xlIjoic2VydmljZV9yb2xlIiwiaWF0IjoxNjMyNzY4MDAwLCJleHAiOjE5NDgzNDQwMDB9.service_role_signature_here

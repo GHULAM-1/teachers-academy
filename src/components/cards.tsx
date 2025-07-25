@@ -1,3 +1,4 @@
+"use client";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -16,6 +17,7 @@ import {
   ArrowRight,
   Award,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export interface FeatureCard {
   id: string;
@@ -77,6 +79,16 @@ export default function FeatureCards({
   cards = defaultCards,
   className,
 }: FeatureCardsProps) {
+  const router = useRouter();
+
+  const handleCardClick = (card: FeatureCard) => {
+    if (card.onClick) {
+      card.onClick();
+    } else if (card.buttonHref) {
+      router.push(card.buttonHref);
+    }
+  };
+
   return (
     <div
       className={cn("grid grid-cols-1 md:grid-cols-2 gap-[16px]", className)}
@@ -117,7 +129,7 @@ export default function FeatureCards({
                   "transition-all duration-300  rounded-[12px]",
                   "bg-[#E4EDFF] hover:bg-[#E4EDFF] text-[#02133B] font-semibold"
                 )}
-                onClick={card.onClick}
+                onClick={() => handleCardClick(card)}
               >
                 <div className="flex items-center justify-center px-[16px] py-[12px]">
                   {card.buttonText}
