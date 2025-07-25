@@ -29,34 +29,81 @@ export default function Mentor({ chatId, initialMessages = [] }: MentorProps) {
   const [profileChecked, setProfileChecked] = useState(false);
   const [needsProfile, setNeedsProfile] = useState(false);
 
+  // Function to count user answers (matching step-chat logic EXACTLY)
+  const getCurrentUserAnswerCount = (messages: Message[]) => {
+    return messages.filter((m, i) => {
+      if (m.role !== "user") return false;
+      // Skip the initial trigger messages (matching backend logic EXACTLY)
+      if (i === 0 && (!m.content || m.content.trim() === "" || m.content.trim() === "start" || m.content.trim() === "begin")) return false;
+      return m.content && m.content.trim() !== "";
+    }).length;
+  };
+
   // Analyze initial messages to determine state
   useEffect(() => {
     if (initialMessages.length > 0 && !hasResumedState) {
       setHasResumedState(true);
       
-      // Count assistant messages that end with "?" (questions)
-      const assistantQuestions = initialMessages
-        .filter(m => m.role === 'assistant')
-        .filter(m => m.content.trim().endsWith('?'));
+      // Use the same counting logic as step-chat
+      const userAnswerCount = getCurrentUserAnswerCount(initialMessages);
+      const lastMessage = initialMessages[initialMessages.length - 1];
       
-      const questionsAnswered = assistantQuestions.length;
+      console.log(`🔄 Mentor resuming: ${userAnswerCount}/8 user answers, last message: ${lastMessage?.role}`);
+      console.log(`📋 All initial messages:`, initialMessages.map((m, i) => `${i}: ${m.role} - "${m.content?.substring(0, 50)}..."`));
+      console.log(`📄 Last message content:`, lastMessage?.content);
+      console.log(`❓ Last message ends with ?:`, lastMessage?.content?.trim().endsWith('?'));
+      console.log(`📏 Last message length:`, lastMessage?.content?.length);
       
-      // Check if we have a final recommendation (8th question answered)
-      const lastAssistantMessage = initialMessages
-        .filter(m => m.role === 'assistant')
-        .pop();
+      // Check if we have completed the assessment (8 questions) and got any recommendation
+      // Once 8 questions are answered AND we have a recommendation, always use Chat mode
+      const recommendationMessages = initialMessages.filter(m => 
+        m.role === 'assistant' && 
+        m.content?.includes('[CTA_BUTTON:')
+      );
       
-      const hasFinalRecommendation = questionsAnswered >= 8 && 
-        lastAssistantMessage && 
-        !lastAssistantMessage.content.trim().endsWith('?');
+      const hasRecommendationMessage = recommendationMessages.length > 0;
       
-      if (hasFinalRecommendation) {
-        // User completed all 8 questions, show final chat
-        setConversationHistory(initialMessages);
-        setRecommendation(lastAssistantMessage?.content || '');
+      // Log all recommendations found
+      console.log(`🎯 Found ${recommendationMessages.length} recommendation messages:`);
+      recommendationMessages.forEach((msg, index) => {
+        console.log(`📋 Recommendation ${index + 1}:`, msg.content);
+        const ctaMatch = msg.content?.match(/\[CTA_BUTTON:([^\]]+)\]/);
+        console.log(`🔗 CTA Button ${index + 1}:`, ctaMatch ? ctaMatch[1] : 'None found');
+      });
+      
+      // Must have both: completed 8 questions AND got a recommendation
+      const hasCompletedAssessment = userAnswerCount >= 8 && hasRecommendationMessage;
+      
+      console.log(`🔍 User answered: ${userAnswerCount}/8, Has recommendation: ${hasRecommendationMessage}, Completed: ${hasCompletedAssessment}`);
+      
+      if (hasCompletedAssessment) {
+        console.log(`✅ Assessment completed, showing final chat with recommendation`);
+        // Find the first recommendation message with CTA button
+        const recommendationMessage = initialMessages.find(m => 
+          m.role === 'assistant' && 
+          m.content?.includes('[CTA_BUTTON:')
+        );
+        
+        // Find the index of the first recommendation message
+        const recommendationIndex = initialMessages.findIndex(m => 
+          m.role === 'assistant' && 
+          m.content?.includes('[CTA_BUTTON:')
+        );
+        
+        // Split conversation: everything before recommendation vs everything from recommendation onwards
+        const conversationBeforeRecommendation = recommendationIndex > 0 
+          ? initialMessages.slice(0, recommendationIndex)
+          : [];
+        
+        console.log(`📋 Conversation split: ${conversationBeforeRecommendation.length} messages before recommendation, showing from index ${recommendationIndex}`);
+        
+        // User completed assessment, show final chat starting from first recommendation
+        setConversationHistory(conversationBeforeRecommendation);
+        setRecommendation(recommendationMessage?.content || '');
         setShowHero(false);
         setShowChat(true);
       } else {
+        console.log(`📝 Assessment in progress (${userAnswerCount}/8), continuing with StepChat`);
         // User hasn't completed all questions, continue with StepChat
         setInitialStepChatMessages(initialMessages);
         setShowHero(false);

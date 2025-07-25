@@ -33,12 +33,12 @@ export default function StepChat({ onComplete, showHero, chatId, initialMessages
 
 
   
-  // Function to count current user answers (matching backend logic)
+  // Function to count current user answers (matching backend logic EXACTLY)
   const getCurrentUserAnswerCount = (currentMessages: any[]) => {
     return currentMessages.filter((m, i) => {
       if (m.role !== "user") return false;
-      // Skip first empty message if it exists (matching backend logic)
-      if (i === 0 && (!m.content || m.content.trim() === "")) return false;
+      // Skip the initial trigger messages (matching backend logic EXACTLY)
+      if (i === 0 && (!m.content || m.content.trim() === "" || m.content.trim() === "start" || m.content.trim() === "begin")) return false;
       return m.content && m.content.trim() !== "";
     }).length;
   };
@@ -119,6 +119,7 @@ export default function StepChat({ onComplete, showHero, chatId, initialMessages
     const lastMessage = messages[messages.length - 1];
     
     console.log(`📊 useEffect check: ${actualUserAnswers}/${TOTAL_QUESTIONS} user answers, last message: ${lastMessage?.role}, loading: ${isLoading}`);
+    console.log(`📋 All messages:`, messages.map((m, i) => `${i}: ${m.role} - "${m.content?.substring(0, 50)}..."`));
     
     // Show loader when user has answered exactly 8 questions
     if (actualUserAnswers === TOTAL_QUESTIONS && lastMessage?.role === "user" && !showLoader) {
@@ -138,7 +139,9 @@ export default function StepChat({ onComplete, showHero, chatId, initialMessages
       !hasCompleted &&
       !isLoading
     ) {
-      console.log(`🎯 Final recommendation detected with ${actualUserAnswers} user answers, completing...`);
+      console.log(`🎯 Final recommendation detected with ${actualUserAnswers} user answers`);
+      console.log(`📄 Recommendation content:`, lastMessage.content);
+      console.log(`🔍 Has CTA_BUTTON:`, lastMessage.content.includes('[CTA_BUTTON:'));
       handleCompletion(lastMessage.content);
     }
   }, [
@@ -289,6 +292,21 @@ export default function StepChat({ onComplete, showHero, chatId, initialMessages
             placeholder={userAnswers.length >= TOTAL_QUESTIONS ? "All questions completed!" : `Question ${userAnswers.length + 1} of ${TOTAL_QUESTIONS}`}
             value={answer}
             onChange={(e) => setAnswer(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (!answer.trim() || isLoading || userAnswers.length >= TOTAL_QUESTIONS) return;
+                
+                const currentCount = getCurrentUserAnswerCount(messages);
+                if (currentCount >= TOTAL_QUESTIONS) return;
+                
+                // Trigger form submission
+                const form = e.currentTarget.closest('form');
+                if (form) {
+                  form.requestSubmit();
+                }
+              }
+            }}
             maxLength={280}
             disabled={isLoading || userAnswers.length >= TOTAL_QUESTIONS}
             style={{ boxShadow: 'none' }}

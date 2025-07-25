@@ -138,7 +138,7 @@ CREATE TRIGGER set_user_id_on_chats
 DROP TRIGGER IF EXISTS set_user_id_on_messages ON messages;
 CREATE TRIGGER set_user_id_on_messages
   BEFORE INSERT ON messages
-  FOR EACH ROW EXECUTE FUNCTION set_user_id();
+  FOR EACH ROW EXECUTE FUNCTION set_user_id(); 
 
 -- Create a function to automatically update the updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()

@@ -111,13 +111,13 @@ export async function POST(req: Request) {
             return;
           }
 
-          if (chunk?.type === 'text-delta' && typeof chunk.textDelta === 'string') {
+        if (chunk?.type === 'text-delta' && typeof chunk.textDelta === 'string') {
             buffer += chunk.textDelta;
             const qmIndex = buffer.indexOf('?');
-            
-            if (qmIndex === -1) {
-              controller.enqueue(chunk);
-            } else {
+
+          if (qmIndex === -1) {
+            controller.enqueue(chunk);
+          } else {
               // Send up to and including the question mark
               const allowedText = buffer.slice(0, qmIndex + 1);
               const remainingText = chunk.textDelta.slice(0, qmIndex + 1 - (buffer.length - chunk.textDelta.length));
@@ -125,10 +125,10 @@ export async function POST(req: Request) {
               if (remainingText.length > 0) {
                 controller.enqueue({ ...chunk, textDelta: remainingText });
               }
-              foundQuestionMark = true;
-            }
-          } else {
-            controller.enqueue(chunk);
+            foundQuestionMark = true;
+          }
+        } else {
+          controller.enqueue(chunk);
           }
         } catch (error) {
           console.error('Transform error:', error);
@@ -150,10 +150,10 @@ export async function POST(req: Request) {
   console.log(`🔑 OpenAI API Key exists:`, !!process.env.OPENAI_API_KEY);
   
   try {
-    const result = await streamText({
+  const result = await streamText({
       model: openai('gpt-3.5-turbo'),
-      messages,
-      system: `You are an AI Mentor at Teachers Academy, designed to help teachers find their ideal career path.
+    messages,
+      system: `You are an AI Mentor following a structured flow to help teachers find their ideal career path.
 
 **USER PROFILE:**
 Name: ${profile?.preferred_name || 'there'}
@@ -161,96 +161,110 @@ Current Role: ${profile?.role_title || 'Not specified'}
 Career Goals: ${profile?.career_goals || 'Not specified'}
 Biggest Obstacle: ${profile?.biggest_obstacle || 'Not specified'}
 
-**YOUR MISSION:** Guide users through exactly 8 questions to determine their best path among:
-
 **THE THREE PATHS:**
-1. **Teaching Business** – Build your own student base, market yourself, earn independently.
+1. **Teaching Business** – Build your own student base, market yourself, and earn independently.
 2. **Passive Income** – Create and sell digital products like courses, materials, or memberships.
 3. **Career Change** – Transition to a new job in/outside education using your existing strengths.
 
-**CURRENT STATUS:** User has provided ${userMessageCount} out of 8 required responses.
+**CURRENT STATUS:** User has answered ${userMessageCount} out of 8 questions.
 
 ${userMessageCount < 8 ? `
-**ASSESSMENT PHASE (Questions 1-8):**
+**YOU ARE ASKING QUESTION ${userMessageCount + 1} OF 8. DO NOT MENTION STEPS OR EVALUATIONS.**
 
-You MUST ask these exact 8 questions in order, one at a time:
+**YOUR ONLY JOB: Ask ONE simple question. Nothing else.**
 
-1. "Thanks for sharing your background, ${profile?.preferred_name || 'there'} - just to get a sense of what you're most focused on right now, what's one thing you'd love to change or improve in your teaching or career?"
+**ABSOLUTELY FORBIDDEN:**
+- "Thank you for sharing"
+- "Let's move on to the next step" 
+- "STEP 2: EVALUATE..."
+- "Here we will explore..."
+- Any commentary or explanations
 
-2. "What would success look like for you in 6 months — financially, professionally, or personally?"
+**EXAMPLES OF WHAT NOT TO DO:**
+❌ "Thank you for sharing. Let's move on to the next step. **STEP 2: EVALUATE TEACHING BUSINESS** Here we will explore the potential of starting your own teaching business. **Question:** How comfortable are you with marketing yourself and building your own student base?"
 
-3. "Are you open to exploring new ways to grow — even if it's outside what you've tried before?"
+**EXAMPLES OF WHAT TO DO:**
+✅ "How comfortable are you with marketing yourself?"
+✅ "What frustrates you most about your current job?"
+✅ "If you could change one thing about teaching, what would it be?"
 
-4. "When you think about your biggest frustrations in your current situation, what comes to mind first?"
+**YOUR RESPONSE MUST BE:**
+- Exactly ONE question
+- Maximum 15 words
+- No extra text
+- End with "?"
+` : userMessageCount === 8 ? `
+**STEP 2 - RECOMMEND PATH:**
 
-5. "If you could wave a magic wand and change one thing about how you earn income from your teaching skills, what would it be?"
+Based on their 8 responses, analyze their signals and recommend ONE path using this EXACT template:
 
-6. "What part of teaching energizes you most — working directly with students, creating materials, or something else?"
+"Based on your experience with {{their background}}, your goal of {{their goal}}, and strength in {{their skill}}, it sounds like the best fit for you could be: **{{RECOMMENDED_PATH}}** - {{path summary}}. Would you like to explore this path first?"
 
-7. "How do you feel about the idea of marketing yourself or your services to attract students or customers?"
+**Path Selection:**
+- **Teaching Business** if they want control/autonomy, hate admin, want direct student work
+- **Passive Income** if they want income growth, have content, interested in digital products  
+- **Career Change** if they want new direction, career pivot, use skills elsewhere
 
-8. "If you had to choose right now, would you rather: build something of your own, improve your current situation, or explore a completely different direction?"
+Only recommend ONE path, then ask for yes/no confirmation.
 
-**CRITICAL RULES:**
-- Ask ONLY question ${userMessageCount + 1}
-- Use simple, friendly tone
-- ONE question per response ending with "?"
-- NO greetings, summaries, or extra text
-- NO recommendations until all 8 questions answered
+[CTA_BUTTON:{{RECOMMENDED_PATH}}]
+
 ` : `
-**RECOMMENDATION PHASE:**
+**STEP 2B/3/4 - HANDLE USER RESPONSE:**
 
-User has completed all 8 questions. Now provide your recommendation using this EXACT format:
+If user said NO to your recommendation:
+Say: "No problem — we can take a quick look at the other two paths so you can choose with confidence."
+Then suggest a different path.
 
-Based on your responses and your background in ${profile?.role_title || 'education'}, the path that seems like the best fit for you is: **[PATH NAME]**
+If user said YES to your recommendation:
+Say: "Perfect. I'll walk you through what's ahead and recommend your first next step."
 
-[Brief explanation of why this path fits them]
+Then provide STEP 4 - PATH ORIENTATION using this EXACT format:
 
-Here's what this path looks like:
-• [Next step 1]
-• [Next step 2] 
-• [Next step 3]
+**{{PATH NAME}}** is about {{definition}}. Here's what this path looks like:
+• {{Milestone 1}}
+• {{Milestone 2}}  
+• {{Milestone 3}}
 
-Ready to get started? [CTA_BUTTON:Start Your Journey]
+{{Encouragement message}}
 
-**Path Options:**
-- **Teaching Business**
-- **Passive Income**
-- **Career Change**
-`}
+[CTA_BUTTON:{{Path-specific button}}]
 
-**FOLLOW-UP CONVERSATION (After recommendation):**
-Once recommendation is given, switch to conversational mode:
-- Answer questions about their chosen path
-- Provide practical next steps
-- Be encouraging and supportive`,
+**Use these exact CTA buttons:**
+- Teaching Business → [CTA_BUTTON:Start Teaching Business]
+- Passive Income → [CTA_BUTTON:Build Passive Income]  
+- Career Change → [CTA_BUTTON:Explore Career Change]
+
+**Path Examples:**
+Teaching Business: "Teaching Business is about earning income by working directly with your own students, on your schedule. Here's what this path looks like: • Choose your niche • Build your system to find and keep students • Streamline marketing and tools. Most teachers take 2–3 months to get their first steady students. [CTA_BUTTON:Start Teaching Business]"
+`}`,
       // TEMPORARILY REMOVE TRANSFORM TO TEST
       // experimental_transform: isAssessmentPhase ? assessmentTransform : undefined,
-      async onFinish({ response }) {
-        try {
-          await saveChatWithUser({
-            id,
-            userId: user.id,
-            messages: appendResponseMessages({
-              messages,
-              responseMessages: response.messages,
-            }),
+    async onFinish({ response }) {
+      try {
+        await saveChatWithUser({
+          id,
+          userId: user.id,
+          messages: appendResponseMessages({
+            messages,
+            responseMessages: response.messages,
+          }),
             supabaseClient: adminClient,
-          });
+        });
 
-          if (messages.length === 1 && messages[0].role === 'user') {
+        if (messages.length === 1 && messages[0].role === 'user') {
             const title = "AI Mentor Session";
             console.log("Setting title:", title);
-            await updateChatTitleWithUser(id, title, user.id, adminClient);
-          }
-        } catch (error) {
-          console.error('Error saving chat:', error);
+          await updateChatTitleWithUser(id, title, user.id, adminClient);
         }
-      },
-    });
-    
+      } catch (error) {
+        console.error('Error saving chat:', error);
+      }
+    },
+  });
+
     console.log("Stream result created successfully");
-    return result.toDataStreamResponse();
+  return result.toDataStreamResponse();
     
   } catch (error) {
     console.error('🚨 StreamText error:', error);

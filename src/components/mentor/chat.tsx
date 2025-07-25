@@ -43,18 +43,45 @@ export default function Chat({
   useEffect(() => {
     if (!recommendation) return;
 
+    console.log(`🎯 Chat.tsx received recommendation:`, recommendation);
     const ctaMatch = recommendation.match(/\[CTA_BUTTON:([^\]]+)\]/);
+    console.log(`🔍 CTA Match:`, ctaMatch);
+    
     if (ctaMatch) {
       setCtaButton(ctaMatch[1]);
       const cleaned = recommendation
         .replace(/\[CTA_BUTTON:[^\]]+\]\s*/, "")
         .trim();
       setCleanRecommendation(cleaned);
+      console.log(`✅ CTA Button set to:`, ctaMatch[1]);
     } else {
       setCtaButton(null);
       setCleanRecommendation(recommendation.trim());
+      console.log(`❌ No CTA Button found in recommendation`);
     }
   }, [recommendation]);
+
+  // Also watch for new CTA buttons in ongoing conversation messages
+  useEffect(() => {
+    const newMessages = messages.slice(conversationHistory.length);
+    const lastNewMessage = newMessages[newMessages.length - 1];
+    
+    if (lastNewMessage?.role === 'assistant' && lastNewMessage.content?.includes('[CTA_BUTTON:')) {
+      console.log(`🎯 Chat.tsx detected new CTA in message:`, lastNewMessage.content);
+      const ctaMatch = lastNewMessage.content.match(/\[CTA_BUTTON:([^\]]+)\]/);
+      console.log(`🔍 New CTA Match:`, ctaMatch);
+      
+      if (ctaMatch) {
+        setCtaButton(ctaMatch[1]);
+        const cleaned = lastNewMessage.content
+          .replace(/\[CTA_BUTTON:[^\]]+\]\s*/, "")
+          .trim();
+        setCleanRecommendation(cleaned);
+        setShowRecommendation(true); // Show the new recommendation
+        console.log(`✅ New CTA Button set to:`, ctaMatch[1]);
+      }
+    }
+  }, [messages, conversationHistory.length]);
 
   useEffect(() => {
     if (!cleanRecommendation || !showRecommendation) return;
@@ -134,22 +161,45 @@ export default function Chat({
           </div>
         )}
 
-        {newMessages.map((m, i) =>
-          m.role === "user" ? (
+        {newMessages.map((m, i) => {
+          // Clean CTA button text from message content for display
+          const displayContent = m.role === 'assistant' && m.content?.includes('[CTA_BUTTON:') 
+            ? m.content.replace(/\[CTA_BUTTON:[^\]]+\]\s*/, '').trim()
+            : m.content;
+
+          const hasCTA = m.role === 'assistant' && m.content?.includes('[CTA_BUTTON:');
+          const ctaMatch = hasCTA ? m.content.match(/\[CTA_BUTTON:([^\]]+)\]/) : null;
+
+          return m.role === "user" ? (
             <div key={i} className="self-end mr-8">
               <span className="inline-block bg-[#E4EDFF] text-[#02133B] px-4 py-2 rounded-b-[12px] rounded-tl-[12px] text-base font-medium">
-                {m.content}
+                {displayContent}
               </span>
             </div>
           ) : (
-            <div key={i} className="flex items-start gap-2">
-              <Image src="/logo1.png" alt="AI Avatar" width={24} height={24} className="mt-1"/>
-              <span className="text-base text-[#02133B] font-normal bg-transparent">
-                {m.content}
-              </span>
+            <div key={i} className="flex flex-col gap-4">
+              <div className="flex items-start gap-2">
+                <Image src="/logo1.png" alt="AI Avatar" width={24} height={24} className="mt-1"/>
+                <span className="text-base text-[#02133B] font-normal bg-transparent">
+                  {displayContent}
+                </span>
+              </div>
+              
+              {/* Show CTA button for new messages with CTA */}
+              {hasCTA && ctaMatch && (
+                <div className="flex justify-start ml-4">
+                  <Button
+                    onClick={handleCtaClick}
+                    className="bg-[#E4EDFF] hover:cursor-pointer hover:bg-[#E4EDFF] text-[#02133B] font-semibold px-6 py-2 rounded-[12px] transition-all duration-200 hover:border-[#02133B]/40"
+                  >
+                    {ctaMatch[1]}
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </div>
+              )}
             </div>
-          )
-        )}
+          );
+        })}
 
         <div ref={messagesEndRef} />
       </div>
@@ -160,6 +210,18 @@ export default function Chat({
             id="chat-input"
             value={input}
             onChange={handleInputChange}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (!input.trim() || isLoading) return;
+                
+                // Trigger form submission
+                const form = e.currentTarget.closest('form');
+                if (form) {
+                  form.requestSubmit();
+                }
+              }
+            }}
             placeholder="Send a message"
             className="resize-none min-h-[40px] border-0 focus:outline-none shadow-none flex-1 text-base"
             maxLength={280}
