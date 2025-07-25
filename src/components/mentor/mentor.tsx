@@ -72,6 +72,7 @@ export default function Mentor({ chatId, initialMessages = [] }: MentorProps) {
       });
       
       // Must have both: completed 8 questions AND got a recommendation
+      console.log(`🔍 User answered: ${userAnswerCount}/8, Has recommendation: ${hasRecommendationMessage}`);
       const hasCompletedAssessment = userAnswerCount >= 8 && hasRecommendationMessage;
       
       console.log(`🔍 User answered: ${userAnswerCount}/8, Has recommendation: ${hasRecommendationMessage}, Completed: ${hasCompletedAssessment}`);
@@ -90,22 +91,35 @@ export default function Mentor({ chatId, initialMessages = [] }: MentorProps) {
           m.content?.includes('[CTA_BUTTON:')
         );
         
-        // Split conversation: everything before recommendation vs everything from recommendation onwards
-        const conversationBeforeRecommendation = recommendationIndex > 0 
-          ? initialMessages.slice(0, recommendationIndex)
+        // Split conversation: everything from recommendation onwards (what Chat should show)
+        const conversationFromRecommendation = recommendationIndex >= 0 
+          ? initialMessages.slice(recommendationIndex)
           : [];
         
-        console.log(`📋 Conversation split: ${conversationBeforeRecommendation.length} messages before recommendation, showing from index ${recommendationIndex}`);
+        console.log(`📋 Conversation split: showing ${conversationFromRecommendation.length} messages from index ${recommendationIndex} onwards`);
+        console.log(`📋 Messages being passed to Chat:`, conversationFromRecommendation.map((m, i) => `${i}: ${m.role} - "${m.content?.substring(0, 50)}..."`));
         
         // User completed assessment, show final chat starting from first recommendation
-        setConversationHistory(conversationBeforeRecommendation);
+        setConversationHistory(conversationFromRecommendation);
         setRecommendation(recommendationMessage?.content || '');
         setShowHero(false);
         setShowChat(true);
       } else {
         console.log(`📝 Assessment in progress (${userAnswerCount}/8), continuing with StepChat`);
+        
+        // Filter out "begin" trigger message before passing to StepChat
+        const filteredMessages = initialMessages.filter((m, index) => {
+          // Remove "begin" trigger message
+          if (index === 0 && m.role === 'user' && (!m.content || m.content.trim() === '' || m.content.trim() === 'begin' || m.content.trim() === 'start')) {
+            return false;
+          }
+          return true;
+        });
+        
+        console.log(`📋 Filtered ${initialMessages.length - filteredMessages.length} trigger messages for StepChat`);
+        
         // User hasn't completed all questions, continue with StepChat
-        setInitialStepChatMessages(initialMessages);
+        setInitialStepChatMessages(filteredMessages);
         setShowHero(false);
         // showChat remains false, so StepChat will be shown
       }
