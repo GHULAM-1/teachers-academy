@@ -1,45 +1,47 @@
+"use client";
+
 import Hero from "../hero";
 import { Separator } from "@radix-ui/react-separator";
 import FeatureCards, { FeatureCard } from "../cards";
-import { Users, Award, User, Rocket, Compass, Badge } from 'lucide-react';
+import { TrendingUp, GitCompare, FileText, CheckCircle } from 'lucide-react';
 
 export default function Career() {
-  const careerGrowthCards: FeatureCard[] = [
+  const careerChangeCards: FeatureCard[] = [
     {
-      id: "ladder",
-      title: "Climb the Career Ladder",
+      id: "discover",
+      title: "Discover",
       description:
-        "Focus on advancing within your current system. Let's create a strategy for leadership roles, department head positions, or administrative promotions.",
-      icon: Users,
-      buttonText: "PLAN MY PROMOTION",
-      buttonHref: "/promotion",
+        "Explore potential career paths and identify opportunities that align with your teaching skills and interests.",
+      icon: TrendingUp,
+      buttonText: "EXPLORE PATHS",
+      buttonHref: "/career-change/chat/discover",
     },
     {
-      id: "specialize",
-      title: "Specialize and Certify",
+      id: "compare",
+      title: "Compare",
       description:
-        "Become the go-to expert in a high-demand area. We can explore valuable certifications, new teaching frameworks, or tech skills to boost your profile.",
-      icon: Award,
-      buttonText: "FIND MY SPECIALTY",
-      buttonHref: "/specialty",
+        "See career options side by side to evaluate salary, requirements, growth potential, and how your skills transfer.",
+      icon: GitCompare,
+      buttonText: "COMPARE OPTIONS",
+      buttonHref: "/career-change/chat/compare",
     },
     {
-      id: "brand",
-      title: "Build Your Professional Brand",
+      id: "create",
+      title: "Create Materials",
       description:
-        "Move beyond the classroom to become a recognized voice in education. Let's work on networking, conference presentations, or writing for publications.",
-      icon: User,
-      buttonText: "GROW MY INFLUENCE",
-      buttonHref: "/influence",
+        "Generate resumes and cover letters tailored to your new career direction with your teaching experience highlighted.",
+      icon: FileText,
+      buttonText: "CREATE MATERIALS",
+      buttonHref: "/career-change/chat/create",
     },
     {
-      id: "horizons",
-      title: "Explore New Horizons",
+      id: "make",
+      title: "Make the Leap",
       description:
-        "Your skills are valuable in many fields. Let's explore alternative career paths like corporate training, instructional design, or EdTech consulting.",
-      icon: Compass,
-      buttonText: "MAP MY PIVOT",
-      buttonHref: "/pivot",
+        "Get an action plan for your job search with concrete steps, timelines, and strategies for career transition.",
+      icon: CheckCircle,
+      buttonText: "GET ACTION PLAN",
+      buttonHref: "/career-change/chat/make",
     },
   ];
 
@@ -47,15 +49,15 @@ export default function Career() {
     <div className="">
       {/* Hero Section */}
       <Hero
-        icon={<Award className="w-10 h-10 text-white" />}
-        title="Career Growth"
-        subtitle="Let's map out the concrete steps to your next promotion, position, or professional milestone."
+        icon={<CheckCircle className="w-10 h-10 text-white" />}
+        title="Career Change"
+        subtitle="Transform your teaching experience into your next career opportunity with our step-by-step guidance."
       />
 
       <Separator className="my-6" />
 
       {/* Feature Cards */}
-      <FeatureCards cards={careerGrowthCards}/>
+      <FeatureCards cards={careerChangeCards}/>
     </div>
   );
 }
