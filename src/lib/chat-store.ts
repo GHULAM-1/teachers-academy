@@ -297,9 +297,18 @@ export async function saveChatWithUser({
   
   try {
     // Convert AI SDK Message format to database format
-    const messagesToInsert = messages.map(msg => {
-      // Handle different date formats
+    const messagesToInsert = messages.map((msg, index) => {
+      // Preserve original message order by using sequential timestamps
+      // This ensures messages are saved in the correct chronological order
       let createdAt: string;
+      
+      // Get the base timestamp for this chat (first message time or current time)
+      const baseTime = new Date();
+      
+      // Calculate timestamp based on message position to preserve order
+      // Each message gets a timestamp that's 1 second after the previous one
+      const messageTime = new Date(baseTime.getTime() + (index * 1000));
+      
       if (msg.createdAt) {
         if (msg.createdAt instanceof Date) {
           createdAt = msg.createdAt.toISOString();
@@ -308,10 +317,10 @@ export async function saveChatWithUser({
         } else if (typeof msg.createdAt === 'number') {
           createdAt = new Date(msg.createdAt).toISOString();
         } else {
-          createdAt = new Date().toISOString();
+          createdAt = messageTime.toISOString();
         }
       } else {
-        createdAt = new Date().toISOString();
+        createdAt = messageTime.toISOString();
       }
 
       return {

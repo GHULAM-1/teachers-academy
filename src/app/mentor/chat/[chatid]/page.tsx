@@ -52,8 +52,8 @@ export default async function Page(props: { params: Promise<{ chatid: string }> 
     // Convert database format to AI SDK Message format and filter out trigger messages
     const messages: Message[] = (data || [])
       .filter((msg, index) => {
-        // Filter out the first "begin" trigger message
-        if (index === 0 && msg.role === 'user' && (!msg.content || msg.content.trim() === '' || msg.content.trim() === 'begin' || msg.content.trim() === 'start')) {
+        // Filter out ALL trigger messages (begin, start, empty) regardless of position
+        if (msg.role === 'user' && (!msg.content || msg.content.trim() === '' || msg.content.trim() === 'begin' || msg.content.trim() === 'start')) {
           return false;
         }
         return true;
