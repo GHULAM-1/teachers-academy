@@ -242,13 +242,24 @@ Only when user has clearly committed to a path and you're giving final actionabl
       // experimental_transform: isAssessmentPhase ? assessmentTransform : undefined,
     async onFinish({ response }) {
       try {
+        // Get the latest timestamp from existing messages to ensure proper sequencing
+        const latestTimestamp = messages.length > 0 
+          ? Math.max(...messages.map(m => m.createdAt ? new Date(m.createdAt).getTime() : 0))
+          : Date.now();
+        
+        // Create new messages with sequential timestamps
+        const newMessages = response.messages.map((msg, index) => ({
+          ...msg,
+          createdAt: new Date(latestTimestamp + (index + 1) * 1000) // Each new message gets a timestamp 1 second later
+        }));
+        
+        // Combine original messages with new messages
+        const allMessages = [...messages, ...newMessages];
+        
         await saveChatWithUser({
           id,
           userId: user.id,
-          messages: appendResponseMessages({
-            messages,
-            responseMessages: response.messages,
-          }),
+          messages: allMessages,
             supabaseClient: adminClient,
         });
 
