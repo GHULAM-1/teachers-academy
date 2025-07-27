@@ -219,9 +219,9 @@ export default function Mentor({ chatId: propChatId, initialMessages = [] }: Men
       } else {
         console.log(`📝 Assessment in progress (${userAnswerCount}/8), continuing with StepChat`);
         
-        // Filter out "begin" trigger message before passing to StepChat
+        // Filter out trigger messages - match server-side logic exactly
         const filteredMessages = initialMessages.filter((m, index) => {
-          // Remove "begin" trigger message
+          // Only filter out the first trigger message (matching server-side logic)
           if (index === 0 && m.role === 'user' && (!m.content || m.content.trim() === '' || m.content.trim() === 'begin' || m.content.trim() === 'start')) {
             return false;
           }

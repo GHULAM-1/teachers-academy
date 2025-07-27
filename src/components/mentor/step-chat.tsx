@@ -116,14 +116,17 @@ export default function StepChat({ onComplete, showHero, chatId, initialMessages
     if (hasCompleted) return;
     
     const filteredMessages = messages.filter((m, i) => {
-      // Always filter out trigger messages (begin, start, empty) regardless of new/resumed chat
+      // Filter out trigger messages - match server-side logic exactly
       if (m.role === "user" && (
         m.content === "" || 
         m.content === "begin" || 
         m.content === "start" ||
         m.content?.trim() === ""
       )) {
-        return false;
+        // Only filter out the first trigger message (matching server-side logic)
+        if (i === 0) {
+          return false;
+        }
       }
       return true;
     });
@@ -183,14 +186,17 @@ export default function StepChat({ onComplete, showHero, chatId, initialMessages
           const recommendation = lastAIMessage?.content || 'Based on your responses, I will help you create a personalized learning plan.';
           
           const filteredMessages = messages.filter((m, i) => {
-            // Always filter out trigger messages (begin, start, empty) regardless of new/resumed chat
+            // Filter out trigger messages - match server-side logic exactly
             if (m.role === "user" && (
               m.content === "" || 
               m.content === "begin" || 
               m.content === "start" ||
               m.content?.trim() === ""
             )) {
-              return false;
+              // Only filter out the first trigger message (matching server-side logic)
+              if (i === 0) {
+                return false;
+              }
             }
             return true;
           });
@@ -255,14 +261,17 @@ export default function StepChat({ onComplete, showHero, chatId, initialMessages
         >
           {messages
             .filter((m, i) => {
-              // Always filter out trigger messages (begin, start, empty) regardless of new/resumed chat
+              // Filter out trigger messages - match server-side logic exactly
               if (m.role === "user" && (
                 m.content === "" || 
                 m.content === "begin" || 
                 m.content === "start" ||
                 m.content?.trim() === ""
               )) {
-                return false;
+                // Only filter out the first trigger message (matching server-side logic)
+                if (i === 0) {
+                  return false;
+                }
               }
               return true;
             })
