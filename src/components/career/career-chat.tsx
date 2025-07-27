@@ -270,7 +270,6 @@ export default function CareerChat({ chatId, initialStep = 'discover', initialMe
           <ChevronRight className="w-4 h-4" />
         </Button> */}
       </div>
-
       {/* Chat Area */}
       <div className="bg-white rounded-lg border border-[#02133B]/20 p-6">
         <div className="flex flex-col h-[500px]">
