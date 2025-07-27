@@ -247,11 +247,40 @@ Only when user has clearly committed to a path and you're giving final actionabl
           ? Math.max(...messages.map(m => m.createdAt ? new Date(m.createdAt).getTime() : 0))
           : Date.now();
         
-        // Create new messages with sequential timestamps
-        const newMessages = response.messages.map((msg, index) => ({
-          ...msg,
-          createdAt: new Date(latestTimestamp + (index + 1) * 1000) // Each new message gets a timestamp 1 second later
-        }));
+        // Create new messages with sequential timestamps and extract plain text
+        const newMessages = response.messages.map((msg, index) => {
+          // Extract plain text from message content
+          let plainText = msg.content;
+          
+          // Handle array format: [{"type": "text", "text": "..."}]
+          if (Array.isArray(msg.content)) {
+            plainText = msg.content
+              .filter(item => item.type === 'text')
+              .map(item => item.text)
+              .join('');
+          }
+          // Handle string format that might be JSON
+          else if (typeof msg.content === 'string' && msg.content.startsWith('[')) {
+            try {
+              const parsed = JSON.parse(msg.content);
+              if (Array.isArray(parsed)) {
+                plainText = parsed
+                  .filter(item => item.type === 'text')
+                  .map(item => item.text)
+                  .join('');
+              }
+            } catch (e) {
+              // If parsing fails, keep original content
+              plainText = msg.content;
+            }
+          }
+          
+          return {
+            ...msg,
+            content: plainText, // Use extracted plain text
+            createdAt: new Date(latestTimestamp + (index + 1) * 1000) // Each new message gets a timestamp 1 second later
+          };
+        });
         
         // Combine original messages with new messages
         const allMessages = [...messages, ...newMessages];
