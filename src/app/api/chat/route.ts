@@ -207,7 +207,7 @@ Based on their 8 responses, analyze their signals and recommend ONE path using t
 
 Only recommend ONE path, then ask for yes/no confirmation.
 
-[CTA_BUTTON:{{RECOMMENDED_PATH}}]
+**DO NOT include [CTA_BUTTON] at this stage - wait for user confirmation first.**
 
 ` : `
 **STEP 2B/3/4 - HANDLE USER RESPONSE:**
