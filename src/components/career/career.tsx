@@ -3,7 +3,7 @@
 import Hero from "../hero";
 import { Separator } from "@radix-ui/react-separator";
 import FeatureCards, { FeatureCard } from "../cards";
-import { TrendingUp, GitCompare, FileText, CheckCircle } from 'lucide-react';
+import { TrendingUp, Heart, FileText, CheckCircle } from 'lucide-react';
 
 export default function Career() {
   const careerChangeCards: FeatureCard[] = [
@@ -17,13 +17,13 @@ export default function Career() {
       buttonHref: "/career-change/chat/discover",
     },
     {
-      id: "compare",
-      title: "Compare",
+      id: "commit",
+      title: "Commit",
       description:
-        "See career options side by side to evaluate salary, requirements, growth potential, and how your skills transfer.",
-      icon: GitCompare,
-      buttonText: "COMPARE OPTIONS",
-      buttonHref: "/career-change/chat/compare",
+        "Commit with confidence to your selected career path and prepare mentally for the transition.",
+      icon: Heart,
+      buttonText: "COMMIT TO PATH",
+      buttonHref: "/career-change/chat/commit",
     },
     {
       id: "create",

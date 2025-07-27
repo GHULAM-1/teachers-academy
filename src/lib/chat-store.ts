@@ -168,6 +168,7 @@ export async function loadUserChats(): Promise<Chat[]> {
     .from('chats')
     .select('*')
     .eq('user_id', user.id) // Only load current user's chats
+    .eq('saved', true) // Only show saved chats in sidebar
     .order('created_at', { ascending: false }); // Order by creation date, newest first
 
   if (error) {
@@ -188,6 +189,7 @@ export async function loadUserChatsServer(userId: string): Promise<Chat[]> {
     .from('chats')
     .select('*')
     .eq('user_id', userId)
+    .eq('saved', true) // Only show saved chats in sidebar
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -246,6 +248,32 @@ export async function updateChatTitleWithUser(
 
   if (error) {
     throw new Error(`Failed to update chat title: ${error.message}`);
+  }
+}
+
+/**
+ * Mark a chat as saved
+ */
+export async function markChatAsSaved(id: string): Promise<void> {
+  const supabase = createClient();
+  
+  // Get current user
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    throw new Error('User must be authenticated to mark chat as saved');
+  }
+
+  const { error } = await supabase
+    .from('chats')
+    .update({ 
+      saved: true,
+      updated_at: new Date().toISOString() 
+    })
+    .eq('id', id)
+    .eq('user_id', user.id); // Only update user's own chats
+
+  if (error) {
+    throw new Error(`Failed to mark chat as saved: ${error.message}`);
   }
 }
 

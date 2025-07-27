@@ -11,12 +11,14 @@ interface ChatProps {
   conversationHistory?: Message[];
   recommendation?: string;
   chatId?: string;
+  onMessagesUpdate?: (messages: Message[]) => void;
 }
 
 export default function Chat({
   conversationHistory = [],
   recommendation,
   chatId,
+  onMessagesUpdate,
 }: ChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
@@ -31,6 +33,13 @@ export default function Chat({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Notify parent of message changes
+  useEffect(() => {
+    if (onMessagesUpdate) {
+      onMessagesUpdate(messages);
+    }
+  }, [messages, onMessagesUpdate]);
 
   const handleCtaClick = () => {
     // Check the recommendation text to determine which path was recommended

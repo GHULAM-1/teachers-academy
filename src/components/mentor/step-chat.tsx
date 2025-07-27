@@ -20,16 +20,24 @@ interface StepChatProps {
   showHero?: (show: boolean) => void;
   chatId?: string;
   initialMessages?: Message[];
+  onMessagesUpdate?: (messages: Message[]) => void;
 }
 
 const TOTAL_QUESTIONS = 8;
 
-export default function StepChat({ onComplete, showHero, chatId, initialMessages = [] }: StepChatProps) {
+export default function StepChat({ onComplete, showHero, chatId, initialMessages = [], onMessagesUpdate }: StepChatProps) {
   const [answer, setAnswer] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showLoader, setShowLoader] = useState(false);
   const [hasCompleted, setHasCompleted] = useState(false);
+  const hasStartedRef = useRef(false);
+
+  console.log('🔄 StepChat component rendered:', { 
+    chatId: chatId?.substring(0, 8) + '...', 
+    initialMessagesCount: initialMessages.length,
+    hasStarted: hasStartedRef.current 
+  });
 
 
   
@@ -68,13 +76,21 @@ export default function StepChat({ onComplete, showHero, chatId, initialMessages
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Notify parent of message changes
   useEffect(() => {
-    // Only start new conversation if no initial messages provided
-    if (messages.length === 0 && initialMessages.length === 0) {
+    if (onMessagesUpdate) {
+      onMessagesUpdate(messages);
+    }
+  }, [messages, onMessagesUpdate]);
+
+  useEffect(() => {
+    // Only start new conversation if no initial messages provided and we haven't started yet
+    if (messages.length === 0 && initialMessages.length === 0 && !hasStartedRef.current) {
       console.log('🚀 StepChat: Auto-starting with "begin" message');
+      hasStartedRef.current = true;
       append({ role: "user", content: "begin" });
     }
-  }, []);
+  }, [messages.length, initialMessages.length, append]);
 
   // Debug error state
   useEffect(() => {
@@ -100,11 +116,16 @@ export default function StepChat({ onComplete, showHero, chatId, initialMessages
     if (hasCompleted) return;
     
     const filteredMessages = messages.filter((m, i) => {
-      // Only filter out first trigger message if we're starting a new chat
-      if (initialMessages.length > 0) {
-        return true; // Show all messages when resuming
+      // Always filter out trigger messages (begin, start, empty) regardless of new/resumed chat
+      if (m.role === "user" && (
+        m.content === "" || 
+        m.content === "begin" || 
+        m.content === "start" ||
+        m.content?.trim() === ""
+      )) {
+        return false;
       }
-      return !(i === 0 && m.role === "user" && (m.content === "" || m.content === "begin"));
+      return true;
     });
     
     setHasCompleted(true);
@@ -162,10 +183,16 @@ export default function StepChat({ onComplete, showHero, chatId, initialMessages
           const recommendation = lastAIMessage?.content || 'Based on your responses, I will help you create a personalized learning plan.';
           
           const filteredMessages = messages.filter((m, i) => {
-            if (initialMessages.length > 0) {
-              return true;
+            // Always filter out trigger messages (begin, start, empty) regardless of new/resumed chat
+            if (m.role === "user" && (
+              m.content === "" || 
+              m.content === "begin" || 
+              m.content === "start" ||
+              m.content?.trim() === ""
+            )) {
+              return false;
             }
-            return !(i === 0 && m.role === "user" && (m.content === "" || m.content === "begin"));
+            return true;
           });
           
           setHasCompleted(true);
@@ -212,7 +239,7 @@ export default function StepChat({ onComplete, showHero, chatId, initialMessages
         <div className="text-center text-sm text-[#02133B]/70 mb-2">
           {progress >= TOTAL_QUESTIONS 
             ? `All ${TOTAL_QUESTIONS} questions answered! Creating your plan...` 
-            : `Question ${userAnswers.length + 1} of ${TOTAL_QUESTIONS} • Progress: ${progress}/${TOTAL_QUESTIONS}`
+            : `Question ${userAnswers.length + 1} of ${TOTAL_QUESTIONS}`
           }
         </div>
         <div className="w-full h-1.5 bg-blue-100 rounded-full overflow-hidden mb-2">
@@ -228,12 +255,16 @@ export default function StepChat({ onComplete, showHero, chatId, initialMessages
         >
           {messages
             .filter((m, i) => {
-              // Only filter out the first trigger message if we're starting a new chat
-              // Don't filter when resuming from existing chat (initialMessages.length > 0)
-              if (initialMessages.length > 0) {
-                return true; // Show all messages when resuming
+              // Always filter out trigger messages (begin, start, empty) regardless of new/resumed chat
+              if (m.role === "user" && (
+                m.content === "" || 
+                m.content === "begin" || 
+                m.content === "start" ||
+                m.content?.trim() === ""
+              )) {
+                return false;
               }
-              return !(i === 0 && m.role === "user" && (m.content === "" || m.content === "begin"));
+              return true;
             })
             .map((m, i) =>
               m.role === "user" ? (

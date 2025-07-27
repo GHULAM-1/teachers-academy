@@ -1,88 +1,100 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { createServerSupabaseClient, createAdminSupabaseClient } from '@/lib/supabase';
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { Message } from 'ai';
+import { generateId } from 'ai';
 import CareerChat from "@/components/career/career-chat";
-import { createCareerChat } from "@/lib/career-chat-store";
-import { useAuth } from "@/components/auth/auth-provider";
 
-const VALID_STEPS = ['discover', 'compare', 'create', 'make'];
+const VALID_STEPS = ['discover', 'commit', 'create', 'make'];
 
-export default function CareerChatPage() {
-  const params = useParams();
-  const router = useRouter();
-  const { user, loading } = useAuth();
-  const [chatId, setChatId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+/**
+ * Career chat page that loads messages server-side like AI mentor
+ */
+export default async function CareerChatPage(props: { 
+  params: Promise<{ step: string }>,
+  searchParams: Promise<{ chatId?: string }>
+}) {
+  const { step } = await props.params;
+  const { chatId } = await props.searchParams;
+  
+  // Validate step parameter
+  if (!step || !VALID_STEPS.includes(step)) {
+    redirect('/career-change');
+    return;
+  }
+  
+  // Get server-side authentication
+  const cookieStore = await cookies();
+  const supabase = createServerSupabaseClient(cookieStore);
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  
+  if (authError || !user) {
+    redirect('/auth');
+    return;
+  }
+  
+  try {
+    // Use admin client for database operations
+    const adminClient = createAdminSupabaseClient();
+    
+    let messages: Message[] = [];
+    let currentStep = step;
+    let finalChatId: string;
+    
+    if (chatId) {
+      finalChatId = chatId;
+      
+      // Load existing chat messages
+      const { data, error } = await adminClient
+        .from('career_messages')
+        .select('*')
+        .eq('chat_id', chatId)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true });
 
-  const step = Array.isArray(params.step) ? params.step[0] : params.step;
-
-  useEffect(() => {
-    if (loading) return;
-
-    if (!user) {
-      router.push('/auth');
-      return;
-    }
-
-    // Validate step parameter
-    if (!step || !VALID_STEPS.includes(step)) {
-      router.push('/career-change');
-      return;
-    }
-
-    // Create or get existing chat
-    const initializeChat = async () => {
-      try {
-        // Check if we have a career chat ID stored in localStorage for this session
-        const existingChatId = localStorage.getItem('career-chat-id');
-        
-        if (existingChatId) {
-          setChatId(existingChatId);
-        } else {
-          // Create a new career chat
-          const newChatId = await createCareerChat();
-          localStorage.setItem('career-chat-id', newChatId);
-          setChatId(newChatId);
+      if (error) {
+        console.error('Error loading career chat messages:', error);
+        // Don't throw error if no messages found - chat might be new
+        if (error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+          throw new Error(`Failed to load career chat: ${error.message}`);
         }
-      } catch (error) {
-        console.error('Failed to initialize career chat:', error);
-        setError('Failed to start career chat session');
       }
-    };
 
-    initializeChat();
-  }, [user, loading, step]);
+      // Convert to AI SDK format - load all messages, let frontend handle step filtering
+      messages = (data || []).map(msg => ({
+        id: msg.id,
+        role: msg.role as 'user' | 'assistant' | 'system',
+        content: msg.content,
+        createdAt: new Date(msg.created_at),
+        step: msg.step // Include step for frontend detection
+      }));
+      
+      // Let frontend handle step detection and transitions
+      // No server-side redirects needed
+    } else {
+      console.log("🔄 No chat ID provided, generating a new one");
+      // Generate a new chat ID for new chats (but don't create the record yet)
+      // The API route will create the record when the first message is sent
+      finalChatId = generateId();
+    }
 
-  if (loading) {
+    return <CareerChat chatId={finalChatId} initialStep={currentStep} initialMessages={messages} />;
+    
+  } catch (error) {
+    console.error('Error loading career chat:', error);
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-[#02133B]">Loading...</div>
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Career Chat Not Found</h1>
+          <p className="text-gray-600 mb-4">The career chat you're looking for doesn't exist.</p>
+          <a 
+            href="/career-change" 
+            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            Start New Career Journey
+          </a>
+        </div>
       </div>
     );
   }
-
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <div className="text-red-600 mb-4">{error}</div>
-        <button
-          onClick={() => router.push('/career-change')}
-          className="bg-[#02133B] text-white px-4 py-2 rounded"
-        >
-          Go Back
-        </button>
-      </div>
-    );
-  }
-
-  if (!chatId) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-[#02133B]">Starting your career journey...</div>
-      </div>
-    );
-  }
-
-  return <CareerChat chatId={chatId} initialStep={step} />;
 } 

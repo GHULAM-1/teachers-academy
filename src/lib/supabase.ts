@@ -49,6 +49,7 @@ export interface Chat {
   id: string
   user_id: string
   title?: string
+  saved: boolean
   created_at: string
   updated_at: string
 }

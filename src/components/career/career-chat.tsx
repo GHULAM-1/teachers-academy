@@ -1,32 +1,56 @@
 "use client";
 
-import { useChat } from "ai/react";
-import { useEffect, useRef, useState } from "react";
+// Extend Window interface for global flags
+declare global {
+  interface Window {
+    isNewCareerChat?: boolean;
+  }
+}
+
+import { useChat, Message } from "ai/react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowRight, Send, ChevronLeft, ChevronRight } from "lucide-react";
+import { Send } from "lucide-react";
 import Image from "next/image";
-import { CareerMessage, getCareerChatStepMessages } from "@/lib/career-chat-store";
+import { CareerMessage } from "@/lib/career-chat-store";
+import { useCareerChatSaveDialog } from "@/hooks/use-career-chat-save-dialog";
+import SaveCareerChatDialog from "./save-career-chat-dialog";
+import { TTSPlayer } from "@/components/tts-player";
 
 interface CareerChatProps {
   chatId: string;
   initialStep?: string;
+  initialMessages?: Message[];
 }
 
 const STEPS = [
   { id: 'discover', name: 'Discover', description: 'Explore potential career paths' },
-  { id: 'compare', name: 'Compare', description: 'Compare career options' },
+  { id: 'commit', name: 'Commit', description: 'Commit with confidence to your selected career path' },
   { id: 'create', name: 'Create Materials', description: 'Build professional materials' },
   { id: 'make', name: 'Make the Leap', description: 'Create action plan' }
 ];
 
-export default function CareerChat({ chatId, initialStep = 'discover' }: CareerChatProps) {
+export default function CareerChat({ chatId, initialStep = 'discover', initialMessages = [] }: CareerChatProps) {
+  const router = useRouter();
   const [currentStep, setCurrentStep] = useState(initialStep);
   const [loadingStep, setLoadingStep] = useState(false);
+  const [currentMessages, setCurrentMessages] = useState<CareerMessage[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const currentStepIndex = STEPS.findIndex(step => step.id === currentStep);
   const currentStepInfo = STEPS[currentStepIndex];
+
+  // Determine if chat has been started
+  const hasChatStarted = currentMessages.length > 0;
+  const shouldShowSaveDialog = hasChatStarted && !!chatId;
+
+  // Use career chat save dialog hook
+  const { showSaveDialog, handleSaveChoice, triggerSaveDialog } = useCareerChatSaveDialog(
+    chatId,
+    shouldShowSaveDialog
+  );
 
   // Use chat hook for current step
   const { messages, input, handleInputChange, handleSubmit, isLoading, setMessages, append } = useChat({
@@ -35,63 +59,125 @@ export default function CareerChat({ chatId, initialStep = 'discover' }: CareerC
     body: {
       step: currentStep
     },
-    initialMessages: [],
+    initialMessages: initialMessages,
+    onFinish: (message) => {
+      // Check if the new message has a different step
+      const messageWithStep = message as any;
+      console.log('🎯 onFinish callback:', { 
+        messageStep: messageWithStep.step, 
+        currentStep, 
+        hasStep: !!messageWithStep.step,
+        messageContent: messageWithStep.content?.substring(0, 50) + '...'
+      });
+      
+      if (messageWithStep.step && messageWithStep.step !== currentStep) {
+        console.log(`🔄 Step changed from ${currentStep} to ${messageWithStep.step}`);
+        setCurrentStep(messageWithStep.step);
+        router.replace(`/career-change/chat/${messageWithStep.step}?chatId=${chatId}`);
+      }
+    }
   });
+
+  // Check for step changes by fetching latest messages from database
+  useEffect(() => {
+    const checkForStepChanges = async () => {
+      try {
+        const response = await fetch(`/api/career/check-step?chatId=${chatId}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.currentStep && data.currentStep !== currentStep) {
+            console.log(`🔄 Step change detected via API: ${currentStep} → ${data.currentStep}`);
+            setCurrentStep(data.currentStep);
+            router.replace(`/career-change/chat/${data.currentStep}?chatId=${chatId}`);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking step changes:', error);
+      }
+    };
+
+    // Check for step changes after each message
+    if (messages.length > 0) {
+      checkForStepChanges();
+    }
+  }, [messages.length, chatId, currentStep, router]);
+
+  // Update current messages when they change
+  const handleMessagesUpdate = useCallback((messages: any[]) => {
+    console.log('💬 Career messages updated. Total:', messages.length);
+    setCurrentMessages(messages as any);
+    
+    // Check if any message has a different step than current
+    if (messages.length > 0) {
+      const lastMessage = messages[messages.length - 1] as any;
+      console.log('🔍 Last message step check:', { 
+        lastMessageStep: lastMessage.step, 
+        currentStep, 
+        hasStep: !!lastMessage.step 
+      });
+      
+      if (lastMessage.step && lastMessage.step !== currentStep) {
+        console.log(`🔄 Step changed from ${currentStep} to ${lastMessage.step}`);
+        setCurrentStep(lastMessage.step);
+        router.replace(`/career-change/chat/${lastMessage.step}?chatId=${chatId}`);
+      }
+    }
+  }, [currentStep, chatId, router]);
+
+  // Listen for custom save dialog events from sidebar
+  useEffect(() => {
+    const handleShowSaveDialog = (event: CustomEvent) => {
+      if (hasChatStarted && chatId) {
+        console.log('📡 Received showSaveDialog event for career chat');
+        const intendedUrl = event.detail?.intendedUrl;
+        console.log('🎯 Intended navigation:', intendedUrl);
+        triggerSaveDialog(intendedUrl);
+      } else {
+        console.log('❌ Career dialog not shown - conditions not met, allowing navigation');
+      }
+    };
+
+    window.addEventListener('showSaveDialog', handleShowSaveDialog as EventListener);
+
+    return () => {
+      window.removeEventListener('showSaveDialog', handleShowSaveDialog as EventListener);
+    };
+  }, [hasChatStarted, chatId, triggerSaveDialog]);
+
+  // Set a global flag for the sidebar to know if we're in a new career chat
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).isNewCareerChat = hasChatStarted && !!chatId;
+    }
+
+    // Cleanup: clear the flag when component unmounts
+    return () => {
+      if (typeof window !== 'undefined') {
+        (window as any).isNewCareerChat = false;
+      }
+    };
+  }, [hasChatStarted, chatId]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Load messages for the current step
+  // Convert initial messages to current messages format when they change
   useEffect(() => {
-    let isMounted = true;
-    
-    const loadStepMessages = async () => {
-      if (!isMounted) return;
-      
-      setLoadingStep(true);
-      try {
-        const messages = await getCareerChatStepMessages(chatId, currentStep);
-        if (isMounted) {
-          setMessages(messages);
-        }
-      } catch (error) {
-        console.error('Failed to load step messages:', error);
-        if (isMounted) {
-          setMessages([]);
-        }
-      } finally {
-        if (isMounted) {
-          setLoadingStep(false);
-        }
-      }
-    };
-
-    loadStepMessages();
-    
-    return () => {
-      isMounted = false;
-    };
-  }, [currentStep, chatId, setMessages]);
-
-  const handleStepChange = (newStep: string) => {
-    if (newStep !== currentStep) {
-      setCurrentStep(newStep);
+    if (initialMessages.length > 0) {
+      console.log(`📚 Received ${initialMessages.length} initial messages for step ${currentStep}`);
+      setCurrentMessages(initialMessages as any);
     }
-  };
+  }, [initialMessages, currentStep]);
 
-  const handlePrevStep = () => {
-    if (currentStepIndex > 0) {
-      handleStepChange(STEPS[currentStepIndex - 1].id);
-    }
-  };
+  // Update current messages when chat messages change
+  useEffect(() => {
+    handleMessagesUpdate(messages);
+  }, [messages, handleMessagesUpdate]);
 
-  const handleNextStep = () => {
-    if (currentStepIndex < STEPS.length - 1) {
-      handleStepChange(STEPS[currentStepIndex + 1].id);
-    }
-  };
+  // Step transitions are now handled automatically by the AI
+  // No manual navigation needed
 
   const handleStepSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,6 +189,8 @@ export default function CareerChat({ chatId, initialStep = 'discover' }: CareerC
     // Handle starting a career path - for now, show confirmation
     alert(`Starting path for ${jobId}! This will transition to the next stage of the discovery process.`);
   };
+
+
 
 
 
@@ -120,8 +208,7 @@ export default function CareerChat({ chatId, initialStep = 'discover' }: CareerC
         <div className="flex items-center space-x-4 mb-4">
           {STEPS.map((step, index) => (
             <div key={step.id} className="flex items-center flex-1">
-              <button
-                onClick={() => handleStepChange(step.id)}
+              <div
                 className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all ${
                   index <= currentStepIndex
                     ? 'bg-[#02133B] text-white border-[#02133B]'
@@ -129,7 +216,7 @@ export default function CareerChat({ chatId, initialStep = 'discover' }: CareerC
                 }`}
               >
                 {index + 1}
-              </button>
+              </div>
               <div className="ml-3 flex-1">
                 <div className={`text-sm font-medium ${
                   index <= currentStepIndex ? 'text-[#02133B]' : 'text-[#02133B]/50'
@@ -153,8 +240,8 @@ export default function CareerChat({ chatId, initialStep = 'discover' }: CareerC
       </div>
 
       {/* Step Navigation */}
-      <div className="flex items-center justify-between mb-6">
-        <Button
+      <div className="flex items-center justify-center mb-6">
+        {/* <Button
           onClick={handlePrevStep}
           disabled={currentStepIndex === 0}
           variant="outline"
@@ -162,7 +249,7 @@ export default function CareerChat({ chatId, initialStep = 'discover' }: CareerC
         >
           <ChevronLeft className="w-4 h-4" />
           <span>Previous Step</span>
-        </Button>
+        </Button> */}
 
         <div className="text-center">
           <h2 className="text-xl font-semibold text-[#02133B]">
@@ -173,7 +260,7 @@ export default function CareerChat({ chatId, initialStep = 'discover' }: CareerC
           </p>
         </div>
 
-        <Button
+        {/* <Button
           onClick={handleNextStep}
           disabled={currentStepIndex === STEPS.length - 1}
           variant="outline"
@@ -181,7 +268,7 @@ export default function CareerChat({ chatId, initialStep = 'discover' }: CareerC
         >
           <span>Next Step</span>
           <ChevronRight className="w-4 h-4" />
-        </Button>
+        </Button> */}
       </div>
 
       {/* Chat Area */}
@@ -190,9 +277,14 @@ export default function CareerChat({ chatId, initialStep = 'discover' }: CareerC
           <div className="flex-1 overflow-y-auto mb-4 space-y-4">
             {loadingStep ? (
               <div className="flex justify-center items-center h-full">
-                <div className="text-[#02133B]/50">Loading step messages...</div>
+                <div className="text-[#02133B]/50">
+                  Loading step messages...
+                </div>
               </div>
-            ) : messages.length === 0 ? (
+            ) : messages.filter(msg => !(msg.role === 'user' && 
+              (msg.content === 'start' || 
+               msg.content === 'begin' || 
+               msg.content?.trim() === ''))).length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center">
                 <div className="text-[#02133B]/50 mb-4">
                   Welcome to the {currentStepInfo.name} step!
@@ -239,8 +331,51 @@ export default function CareerChat({ chatId, initialStep = 'discover' }: CareerC
                       // AI messages on the LEFT side  
                       <div className="flex items-start gap-2 max-w-[80%]">
                         <Image src="/logo1.png" alt="AI Avatar" width={24} height={24} className="mt-1 flex-shrink-0"/>
-                        <div className="text-base text-[#02133B] font-normal bg-transparent whitespace-pre-wrap">
-                          {message.content}
+                        <div className="flex flex-col gap-2">
+                          <div className="text-base text-[#02133B] font-normal bg-transparent whitespace-pre-wrap">
+                            {message.content && typeof message.content === 'string' 
+                              ? message.content.replace('AUDIO_MESSAGE', '').trim()
+                              : message.content
+                            }
+                          </div>
+                          {/* Show TTS player if this is a voice recording response */}
+                          {(message as any).hasVoiceRecording || 
+                           (message.content && 
+                            typeof message.content === 'string' && 
+                            message.content.includes('AUDIO_MESSAGE')) && (
+                            <div className="mt-2">
+                              <div className="text-xs text-gray-500 mb-1">Voice recording available:</div>
+                              <TTSPlayer 
+                                text={message.content.replace('AUDIO_MESSAGE', '').trim()} 
+                                voice="nova"
+                                className="text-sm"
+                              />
+                            </div>
+                          )}
+                          
+                          {/* Show mindset tools if detected */}
+                          {(message as any).hasMindsetTools && (message as any).mindsetTools && (
+                            <div className="mt-3 space-y-2">
+                              <div className="text-xs text-gray-500 mb-2">Mindset tools available:</div>
+                              {(message as any).mindsetTools.map((tool: any, index: number) => (
+                                <div key={index} className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                  <div className="font-medium text-blue-900 mb-1">{tool.name}</div>
+                                  <div className="text-sm text-blue-700 mb-2">{tool.description}</div>
+                                  <div className="text-xs text-blue-600 mb-2">Format: {tool.format}</div>
+                                  <div className="text-sm text-gray-700 whitespace-pre-wrap">{tool.prompt}</div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {/* Debug: Show detection logic */}
+                          {process.env.NODE_ENV === 'development' && (
+                            <div className="text-xs text-gray-400 mt-1">
+                              isVoiceRecording: {(message as any).hasVoiceRecording || 
+                               (message.content && 
+                                typeof message.content === 'string' && 
+                                message.content.includes('AUDIO_MESSAGE')) ? 'true' : 'false'}
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
@@ -289,6 +424,16 @@ export default function CareerChat({ chatId, initialStep = 'discover' }: CareerC
           </form>
         </div>
       </div>
+
+
+
+      {/* Save Career Chat Dialog */}
+      <SaveCareerChatDialog
+        isOpen={showSaveDialog}
+        onSave={() => handleSaveChoice(true)}
+        onDiscard={() => handleSaveChoice(false)}
+        chatId={chatId}
+      />
     </div>
   );
 } 

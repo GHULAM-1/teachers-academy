@@ -126,7 +126,7 @@ export default function FeatureCards({
             <CardContent>
               <button
                 className={cn(
-                  "transition-all duration-300  rounded-[12px]",
+                  "transition-all duration-300 hover:cursor-pointer  rounded-[12px]",
                   "bg-[#E4EDFF] hover:bg-[#E4EDFF] text-[#02133B] font-semibold"
                 )}
                 onClick={() => handleCardClick(card)}

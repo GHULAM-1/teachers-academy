@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -21,11 +21,13 @@ import {
   Award,
   Rocket,
   LogOut,
+  ChevronDown,
 } from "lucide-react";
 import Image from "next/image";
 import { useAuth } from "./auth/auth-provider";
 import { Chat } from "@/lib/supabase";
 import { loadUserChats } from "@/lib/chat-store";
+import { CareerChat, loadUserCareerChats, loadCareerChatMessages, determineResumeStep } from "@/lib/career-chat-store";
 
 interface SidebarItem {
   id: string;
@@ -83,16 +85,33 @@ function SidebarContent({
   className,
 }: SidebarContentProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { user, signOut } = useAuth();
   const [chats, setChats] = useState<Chat[]>([]);
+  const [careerChats, setCareerChats] = useState<CareerChat[]>([]);
+  const [careerChatSteps, setCareerChatSteps] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [expandedSection, setExpandedSection] = useState<
+    "mentor" | "career" | null
+  >("mentor");
+
+  // Auto-expand relevant section based on current route
+  useEffect(() => {
+    if (pathname.startsWith("/mentor")) {
+      setExpandedSection("mentor");
+    } else if (pathname.startsWith("/career-change")) {
+      setExpandedSection("career");
+    }
+  }, [pathname]);
   // Load chat history
   useEffect(() => {
     async function fetchChats() {
       try {
         const userChats = await loadUserChats();
+        const userCareerChats = await loadUserCareerChats();
         setChats(userChats);
+        setCareerChats(userCareerChats);
       } catch (error) {
         console.error("Error loading chats:", error);
       } finally {
@@ -114,6 +133,31 @@ function SidebarContent({
         }
       }
       refreshChats();
+    }
+    if (pathname.startsWith("/career-change/chat/")) {
+      async function refreshCareerChats() {
+        try {
+          const userCareerChats = await loadUserCareerChats();
+          setCareerChats(userCareerChats);
+          
+          // Determine the current step for each career chat
+          const stepsMap: Record<string, string> = {};
+          for (const chat of userCareerChats) {
+            try {
+              const messages = await loadCareerChatMessages(chat.id);
+              const step = determineResumeStep(messages);
+              stepsMap[chat.id] = step;
+            } catch (error) {
+              console.error(`Error loading steps for chat ${chat.id}:`, error);
+              stepsMap[chat.id] = 'discover'; // Fallback
+            }
+          }
+          setCareerChatSteps(stepsMap);
+        } catch (error) {
+          console.error("Error refreshing career chats:", error);
+        }
+      }
+      refreshCareerChats();
     }
   }, [pathname]);
 
@@ -145,6 +189,34 @@ function SidebarContent({
     return () => clearInterval(interval);
   }, [pathname, chats, isRefreshing]);
 
+  // Auto-refresh career chats every 5 seconds when on career pages to catch new chats
+  useEffect(() => {
+    if (!pathname.startsWith("/career-change")) return;
+
+    const interval = setInterval(async () => {
+      // Don't auto-refresh if already refreshing from an event
+      if (isRefreshing) return;
+
+      try {
+        const userCareerChats = await loadUserCareerChats();
+        // Only update if the chats have actually changed (check both length and latest timestamps)
+        const careerChatsChanged =
+          userCareerChats.length !== careerChats.length ||
+          (userCareerChats.length > 0 &&
+            careerChats.length > 0 &&
+            userCareerChats[0]?.updated_at !== careerChats[0]?.updated_at);
+
+        if (careerChatsChanged) {
+          setCareerChats(userCareerChats);
+        }
+      } catch (error) {
+        console.error("Error auto-refreshing career chats:", error);
+      }
+    }, 5000); // Refresh every 5 seconds
+
+    return () => clearInterval(interval);
+  }, [pathname, careerChats, isRefreshing]);
+
   // Listen for custom chat update events (triggered from API calls)
   useEffect(() => {
     const handleChatUpdate = async () => {
@@ -160,13 +232,44 @@ function SidebarContent({
       }
     };
 
+    const handleCareerChatUpdate = async () => {
+      // Refresh career chats immediately when a chat update event is triggered
+      setIsRefreshing(true);
+      try {
+        const userCareerChats = await loadUserCareerChats();
+        setCareerChats(userCareerChats);
+        
+        // Also refresh the steps for each chat
+        const stepsMap: Record<string, string> = {};
+        for (const chat of userCareerChats) {
+          try {
+            const messages = await loadCareerChatMessages(chat.id);
+            const step = determineResumeStep(messages);
+            stepsMap[chat.id] = step;
+          } catch (error) {
+            console.error(`Error loading steps for chat ${chat.id}:`, error);
+            stepsMap[chat.id] = 'discover'; // Fallback
+          }
+        }
+        setCareerChatSteps(stepsMap);
+      } catch (error) {
+        console.error("Error refreshing career chats on event:", error);
+      } finally {
+        setIsRefreshing(false);
+      }
+    };
+
     // Listen for custom events
     window.addEventListener("chatCreated", handleChatUpdate);
     window.addEventListener("chatUpdated", handleChatUpdate);
+    window.addEventListener("careerChatCreated", handleCareerChatUpdate);
+    window.addEventListener("careerChatUpdated", handleCareerChatUpdate);
 
     return () => {
       window.removeEventListener("chatCreated", handleChatUpdate);
       window.removeEventListener("chatUpdated", handleChatUpdate);
+      window.removeEventListener("careerChatCreated", handleCareerChatUpdate);
+      window.removeEventListener("careerChatUpdated", handleCareerChatUpdate);
     };
   }, []);
 
@@ -243,7 +346,32 @@ function SidebarContent({
                 )}
                 asChild
               >
-                <Link href={item.href}>
+                <Link
+                  href={item.href}
+                  onClick={(e) => {
+                    // Show save dialog if we're in a chat and clicking a different page
+                    if (
+                      (pathname.startsWith("/mentor/chat/") ||
+                        pathname.startsWith("/career-change/chat/")) &&
+                      item.href !== pathname
+                    ) {
+                      console.log("🔄 Clicked navigation:", item.href);
+                      
+                      // Check if we're in a new chat that needs saving
+                      if ((window as any).isNewChat || (window as any).isNewCareerChat) {
+                        console.log('💾 New chat detected, showing save dialog');
+                        e.preventDefault();
+                        window.dispatchEvent(
+                          new CustomEvent("showSaveDialog", {
+                            detail: { intendedUrl: item.href },
+                          })
+                        );
+                      } else {
+                        console.log('✅ No new chat, allowing navigation');
+                      }
+                    }
+                  }}
+                >
                   <Icon className="w-5 h-5 flex-shrink-0" />
                   {!isCollapsed && (
                     <span className="ml-3 font-medium">{item.label}</span>
@@ -254,34 +382,50 @@ function SidebarContent({
           })}
         </div>
       </div>
-      
+
       {!isCollapsed && (
         <>
           <Separator className="mx-3 bg-[#02133B]/20 flex-shrink-0" />
 
-          <div className="flex-1 flex flex-col min-h-0 px-3">
-                {/* Chat History Header - Fixed */}
-                <div className="flex-shrink-0 py-4">
-                  <div className="px-3 py-2 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-semibold text-[#02133B]">
-                        AI Mentor Chats
-                      </h3>
-                      {isRefreshing && (
-                        <div className="w-3 h-3 border border-[#02133B] border-t-transparent rounded-full animate-spin" />
-                      )}
-                    </div>
-                    {chats.length > 0 && (
-                      <span className="bg-[#02133B] text-white text-xs font-medium px-2 py-1 rounded-full">
-                        {chats.length}
-                      </span>
-                    )}
-                  </div>
+          <div className="flex-1 flex flex-col min-h-0 overflow-y-auto px-3 space-y-2">
+            {/* AI Mentor Chats Section */}
+            <div className="flex-shrink-0">
+              <Button
+                variant="ghost"
+                className="w-full justify-between px-3 py-2 h-auto text-left"
+                onClick={() =>
+                  setExpandedSection(
+                    expandedSection === "mentor" ? null : "mentor"
+                  )
+                }
+              >
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-semibold text-[#02133B]">
+                    AI Mentor Chats
+                  </h3>
+                  {isRefreshing && (
+                    <div className="w-3 h-3 border border-[#02133B] border-t-transparent rounded-full animate-spin" />
+                  )}
                 </div>
+                <div className="flex items-center gap-2">
+                  {chats.length > 0 && (
+                    <span className="bg-[#02133B] text-white text-xs font-medium px-2 py-1 rounded-full">
+                      {chats.length}
+                    </span>
+                  )}
+                  <ChevronDown
+                    className={cn(
+                      "w-4 h-4 transition-transform duration-200",
+                      expandedSection === "mentor" ? "rotate-180" : ""
+                    )}
+                  />
+                </div>
+              </Button>
 
-                {/* Chat List - Scrollable */}
-                <div className="flex-1 min-h-0 overflow-hidden">
-                  <ScrollArea className="h-full">
+              {/* Collapsible Chat List */}
+              {expandedSection === "mentor" && (
+                <div className="mt-2">
+                  <ScrollArea className="max-h-56">
                     <div className="space-y-1 pb-4">
                       {isLoading ? (
                         <div className="px-3 py-2 text-sm text-[#02133B]/60">
@@ -313,12 +457,19 @@ function SidebarContent({
                               className={cn(
                                 "w-full justify-start h-auto p-3 text-left group transition-all duration-200",
                                 isActiveChat
-                                  ? "bg-[#02133B] text-white hover:bg-[#02133B]"
+                                  ? "bg-[#02133B] hover:text-white text-white hover:bg-[#02133B]"
                                   : "text-[#02133B] hover:bg-[#02133B]/10"
                               )}
                               asChild
                             >
-                              <Link href={`/mentor/chat/${chat.id}`}>
+                              <Link
+                                href={`/mentor/chat/${chat.id}`}
+                                onClick={(e) => {
+                                  console.log("🔄 Clicked chat:", chat.id);
+                                  // For chat links, allow navigation without dialog
+                                  // Chat links are always to saved chats, so no need for save dialog
+                                }}
+                              >
                                 <div className="flex flex-col gap-1.5 w-full">
                                   <div className="flex items-center gap-2">
                                     <MessageSquare className="w-3.5 h-3.5 flex-shrink-0 opacity-70" />
@@ -343,11 +494,126 @@ function SidebarContent({
                     </div>
                   </ScrollArea>
                 </div>
-              </div>
-            </>
-          )}
-        
-        {!isCollapsed && user && (
+              )}
+            </div>
+
+            {/* Career Growth Section */}
+            <div className="flex-shrink-0">
+              <Button
+                variant="ghost"
+                className="w-full justify-between px-3 py-2 h-auto text-left"
+                onClick={() =>
+                  setExpandedSection(
+                    expandedSection === "career" ? null : "career"
+                  )
+                }
+              >
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-semibold text-[#02133B]">
+                    Career Growth
+                  </h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  {careerChats.length > 0 && (
+                    <span className="bg-[#02133B] text-white text-xs font-medium px-2 py-1 rounded-full">
+                      {careerChats.length}
+                    </span>
+                  )}
+                  <ChevronDown
+                    className={cn(
+                      "w-4 h-4 transition-transform duration-200",
+                      expandedSection === "career" ? "rotate-180" : ""
+                    )}
+                  />
+                </div>
+              </Button>
+
+              {/* Collapsible Career Growth List */}
+              {expandedSection === "career" && (
+                <div className="mt-2">
+                  <ScrollArea className="max-h-56">
+                    <div className="space-y-1 pb-4">
+                      {isLoading ? (
+                        <div className="px-3 py-2 text-sm text-[#02133B]/60">
+                          Loading career chats...
+                        </div>
+                      ) : careerChats.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-[#02133B]/60">
+                          <div className="text-center">
+                            <Award className="w-6 h-6 mx-auto mb-1 opacity-50" />
+                            <p>No career chats yet</p>
+                            <p className="text-xs mt-1">
+                              Start your career journey!
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        careerChats.slice(0, 15).map((chat, index) => {
+                          const chatStep = careerChatSteps[chat.id] || 'discover';
+                          const isActiveChat =
+                            pathname === `/career-change/chat/${chatStep}` && 
+                            searchParams.get('chatId') === chat.id;
+                          const chatTitle = `CAREER JOURNEY ${index + 1}`;
+                          const creationDate = formatCreationDate(
+                            chat.created_at
+                          );
+
+                          return (
+                            <Button
+                              key={chat.id}
+                              variant="ghost"
+                              className={cn(
+                                "w-full justify-start h-auto p-3 text-left group transition-all duration-200",
+                                isActiveChat
+                                  ? "bg-[#02133B] hover:text-white text-white hover:bg-[#02133B]"
+                                  : "text-[#02133B] hover:bg-[#02133B]/10"
+                              )}
+                              asChild
+                            >
+                              <Link
+                                href={`/career-change/chat/${careerChatSteps[chat.id] || 'discover'}?chatId=${chat.id}`}
+                                onClick={(e) => {
+                                  console.log(
+                                    "🔄 Clicked career chat:",
+                                    chat.id,
+                                    "Step:",
+                                    careerChatSteps[chat.id] || 'discover'
+                                  );
+                                  // For career chat links, allow navigation without dialog
+                                  // Career chat links are always to saved chats, so no need for save dialog
+                                }}
+                              >
+                                <div className="flex flex-col gap-1.5 w-full">
+                                  <div className="flex items-center gap-2">
+                                    <Award className="w-3.5 h-3.5 flex-shrink-0 opacity-70" />
+                                    <span className="text-sm font-medium truncate">
+                                      {chatTitle}
+                                    </span>
+                                  </div>
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className="text-xs opacity-70">
+                                      Created: {creationDate}
+                                    </span>
+                                    <span className="text-xs opacity-60">
+                                      {formatDate(chat.updated_at)}
+                                    </span>
+                                  </div>
+                                </div>
+                              </Link>
+                            </Button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {!isCollapsed && user && (
         <div className="flex  p-3 border-t border-[#02133B]/20">
           <div className="flex  items-center gap-1 p-2 rounded-lg bg-[#E4EDFF]/50">
             {/* <div className="w-8 h-8 rounded-full bg-[#02133B] flex items-center justify-center flex-shrink-0">
@@ -359,15 +625,14 @@ function SidebarContent({
               </p>
             </div>
             <div className="">
-              
-            <Button
-              onClick={signOut}
-              size="sm"
-              variant="ghost"
-              className="p-1 h-auto text-[#02133B] hover:bg-[#02133B]/10 "
-            >
-              <LogOut className="w-4 h-4" />
-            </Button>
+              <Button
+                onClick={signOut}
+                size="sm"
+                variant="ghost"
+                className="p-1 h-auto text-[#02133B] hover:bg-[#02133B]/10 "
+              >
+                <LogOut className="w-4 h-4" />
+              </Button>
             </div>
           </div>
         </div>

@@ -98,6 +98,16 @@ SELECT id
 FROM auth.users 
 WHERE id NOT IN (SELECT id FROM profiles);
 
+-- Add saved column to career_chats table if it doesn't exist
+ALTER TABLE career_chats ADD COLUMN IF NOT EXISTS saved BOOLEAN DEFAULT false;
+
+-- Create index for saved column if it doesn't exist
+CREATE INDEX IF NOT EXISTS idx_career_chats_saved ON career_chats(saved);
+
+-- Remove the problematic trigger that's setting user_id to NULL
+DROP TRIGGER IF EXISTS set_user_id_on_career_chats ON career_chats;
+DROP TRIGGER IF EXISTS set_user_id_on_career_messages ON career_messages;
+
 -- Verification: Check if everything was created successfully
 -- Run these SELECT statements to verify:
 

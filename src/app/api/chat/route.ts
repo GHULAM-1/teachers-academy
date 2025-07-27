@@ -212,31 +212,31 @@ Only recommend ONE path, then ask for yes/no confirmation.
 ` : `
 **STEP 2B/3/4 - HANDLE USER RESPONSE:**
 
+**EXPLORATION PHASE (NO CTA BUTTONS):**
 If user said NO to your recommendation:
-Say: "No problem — we can take a quick look at the other two paths so you can choose with confidence."
-Then suggest a different path.
+- Say: "No problem — we can take a quick look at the other two paths so you can choose with confidence."
+- Then suggest a different path with explanation
+- Ask: "Would you like to learn more about this path?"
+- **DO NOT include [CTA_BUTTON] - this is just exploration**
 
-If user said YES to your recommendation:
-Say: "Perfect. I'll walk you through what's ahead and recommend your first next step."
+If user wants to learn more about a path (but hasn't committed):
+- Provide more details about the path
+- Ask follow-up questions like "Are you ready to explore this path further?"
+- **DO NOT include [CTA_BUTTON] - still exploring**
 
-Then provide STEP 4 - PATH ORIENTATION using this EXACT format:
+**FINAL COMMITMENT PHASE (SHOW CTA BUTTON):**
+Only when user has clearly committed to a path and you're giving final actionable steps:
+- Say: "Great! To start building [PATH NAME], you can begin by..."
+- Provide specific, actionable next steps
+- End with encouragement about their journey
+- **NOW include [CTA_BUTTON:{{Path-specific button}}]**
 
-**{{PATH NAME}}** is about {{definition}}. Here's what this path looks like:
-• {{Milestone 1}}
-• {{Milestone 2}}  
-• {{Milestone 3}}
-
-{{Encouragement message}}
-
-[CTA_BUTTON:{{Path-specific button}}]
-
-**Use these exact CTA buttons:**
+**CTA Button Rules:**
 - Teaching Business → [CTA_BUTTON:Start Teaching Business]
 - Passive Income → [CTA_BUTTON:Build Passive Income]  
 - Career Change → [CTA_BUTTON:Explore Career Change]
 
-**Path Examples:**
-Teaching Business: "Teaching Business is about earning income by working directly with your own students, on your schedule. Here's what this path looks like: • Choose your niche • Build your system to find and keep students • Streamline marketing and tools. Most teachers take 2–3 months to get their first steady students. [CTA_BUTTON:Start Teaching Business]"
+**ONLY show CTA buttons when giving final actionable implementation steps, NOT during exploration or explanation phases.**
 `}`,
       // TEMPORARILY REMOVE TRANSFORM TO TEST
       // experimental_transform: isAssessmentPhase ? assessmentTransform : undefined,

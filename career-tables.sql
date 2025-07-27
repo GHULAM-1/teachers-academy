@@ -6,6 +6,8 @@ CREATE TABLE IF NOT EXISTS career_chats (
   id TEXT PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   title TEXT,
+  saved BOOLEAN DEFAULT false,
+  current_step TEXT DEFAULT 'discover',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -24,6 +26,7 @@ CREATE TABLE IF NOT EXISTS career_messages (
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_career_chats_user_id ON career_chats(user_id);
 CREATE INDEX IF NOT EXISTS idx_career_chats_updated_at ON career_chats(updated_at);
+CREATE INDEX IF NOT EXISTS idx_career_chats_saved ON career_chats(saved);
 CREATE INDEX IF NOT EXISTS idx_career_messages_chat_id ON career_messages(chat_id);
 CREATE INDEX IF NOT EXISTS idx_career_messages_user_id ON career_messages(user_id);
 CREATE INDEX IF NOT EXISTS idx_career_messages_step ON career_messages(step);
