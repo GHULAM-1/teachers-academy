@@ -56,11 +56,12 @@ export default function StepChat({ onComplete, showHero, chatId, initialMessages
     append,
     isLoading,
     error,
+    setMessages,
   } = useChat({ 
     maxSteps: 10,
     api: "/api/chat",
     id: chatId, // Use provided chatId for persistence
-    initialMessages, // Load existing messages if resuming
+    initialMessages: [], // Don't use initialMessages here to avoid conflicts
     sendExtraMessageFields: true, // Send id and createdAt for each message
     onFinish: (message) => {
       console.log(`🤖 AI response received: ${message.content.length} chars, Question: ${message.content.trim().endsWith('?')}`);
@@ -82,6 +83,14 @@ export default function StepChat({ onComplete, showHero, chatId, initialMessages
       onMessagesUpdate(messages);
     }
   }, [messages, onMessagesUpdate]);
+
+  // Force set initial messages when they are provided (for existing chats)
+  useEffect(() => {
+    if (initialMessages.length > 0 && messages.length === 0) {
+      console.log('🔄 StepChat: Setting initial messages from props:', initialMessages.length);
+      setMessages(initialMessages);
+    }
+  }, [initialMessages, messages.length, setMessages]);
 
   useEffect(() => {
     // Only start new conversation if no initial messages provided and we haven't started yet

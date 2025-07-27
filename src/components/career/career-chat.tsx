@@ -59,7 +59,7 @@ export default function CareerChat({ chatId, initialStep = 'discover', initialMe
     body: {
       step: currentStep
     },
-    initialMessages: initialMessages,
+    initialMessages: [], // Don't use initialMessages here to avoid conflicts
     onFinish: (message) => {
       // Check if the new message has a different step
       const messageWithStep = message as any;
@@ -162,6 +162,14 @@ export default function CareerChat({ chatId, initialStep = 'discover', initialMe
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Force set initial messages when they are provided (for existing chats)
+  useEffect(() => {
+    if (initialMessages.length > 0 && messages.length === 0) {
+      console.log(`🔄 CareerChat: Setting initial messages from props: ${initialMessages.length} for step ${currentStep}`);
+      setMessages(initialMessages);
+    }
+  }, [initialMessages, messages.length, setMessages, currentStep]);
 
   // Convert initial messages to current messages format when they change
   useEffect(() => {

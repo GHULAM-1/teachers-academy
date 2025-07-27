@@ -23,11 +23,19 @@ export default function Chat({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Let Vercel AI SDK handle everything - conversation history already contains messages from 1st recommendation onwards
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
+  const { messages, input, handleInputChange, handleSubmit, isLoading, setMessages } = useChat({
     api: "/api/chat",
     id: chatId,
-    initialMessages: conversationHistory, // This contains conversation from 1st recommendation onwards
+    initialMessages: [], // Don't use initialMessages here to avoid conflicts
   });
+
+  // Force set conversation history when it's provided (for existing chats)
+  useEffect(() => {
+    if (conversationHistory.length > 0 && messages.length === 0) {
+      console.log('🔄 Chat: Setting conversation history from props:', conversationHistory.length);
+      setMessages(conversationHistory);
+    }
+  }, [conversationHistory, messages.length, setMessages]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
