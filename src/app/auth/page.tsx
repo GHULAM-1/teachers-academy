@@ -1,14 +1,16 @@
 import AuthForm from '@/components/auth/auth-form';
 import { Suspense } from 'react';
 
-export default function AuthPage({
+export default async function AuthPage({
   searchParams,
 }: {
-  searchParams: { error?: string };
+  searchParams: Promise<{ error?: string }>;
 }) {
+  const params = await searchParams;
+  
   return (
     <Suspense fallback={<div>Loading...</div>}>
-      <AuthForm error={searchParams.error} />
+      <AuthForm error={params.error} />
     </Suspense>
   );
 } 
