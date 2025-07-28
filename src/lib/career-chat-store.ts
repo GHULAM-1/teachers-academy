@@ -7,6 +7,7 @@ export interface CareerChat {
   user_id: string;
   title?: string;
   saved: boolean;
+  job_search_terms?: string;
   created_at: string;
   updated_at: string;
 }
@@ -278,4 +279,72 @@ export async function updateCareerChatTitleWithUser(
   if (error) {
     throw new Error(`Failed to update career chat title: ${error.message}`);
   }
+}
+
+export async function saveJobSearchTermsToCareerChat(
+  chatId: string,
+  userId: string,
+  jobSearchTerms: string,
+  supabaseClient?: any
+): Promise<void> {
+  const client = supabaseClient || createAdminSupabaseClient();
+  
+  const { error } = await client
+    .from('career_chats')
+    .update({
+      job_search_terms: jobSearchTerms,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', chatId)
+    .eq('user_id', userId);
+
+  if (error) {
+    console.error('Failed to save job search terms to career chat:', error);
+    throw new Error(`Failed to save job search terms to career chat: ${error.message}`);
+  }
+}
+
+export async function getJobSearchTermsFromCareerChat(
+  chatId: string,
+  userId: string,
+  supabaseClient?: any
+): Promise<string | null> {
+  const client = supabaseClient || createAdminSupabaseClient();
+  
+  const { data, error } = await client
+    .from('career_chats')
+    .select('job_search_terms')
+    .eq('id', chatId)
+    .eq('user_id', userId)
+    .single();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return data.job_search_terms || null;
+}
+
+export async function getJobSearchTermsFromCareerChatClient(
+  chatId: string
+): Promise<string | null> {
+  const client = createClient();
+  const { data: { user } } = await client.auth.getUser();
+  
+  if (!user) {
+    return null;
+  }
+
+  const { data, error } = await client
+    .from('career_chats')
+    .select('job_search_terms')
+    .eq('id', chatId)
+    .eq('user_id', user.id)
+    .single();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return data.job_search_terms || null;
 } 

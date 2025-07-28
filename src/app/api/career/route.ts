@@ -5,7 +5,7 @@ import { createServerSupabaseClient, createAdminSupabaseClient } from '@/lib/sup
 import { matchJobsToAnswers, DiscoveryAnswers, JobMatch } from '@/lib/job-matching';
 import { detectMindsetTriggers, MINDSET_TOOLS, getMindsetToolById } from '@/lib/mindset-tools';
 import { saveCareerMaterialToProfile, MaterialType } from '@/lib/career-materials';
-import { saveJobSearchTermsToProfile } from '@/lib/career-materials';
+import { saveJobSearchTermsToCareerChat } from '@/lib/career-chat-store';
 import { cookies } from 'next/headers';
 import dotenv from 'dotenv';
 
@@ -585,8 +585,8 @@ Your suggestion:`;
                     
                     if (jobSearchTerms) {
                       console.log('🎯 Generated job search terms:', jobSearchTerms);
-                      await saveJobSearchTermsToProfile(userId, jobSearchTerms);
-                      console.log('✅ Job search terms saved to profile');
+                      await saveJobSearchTermsToCareerChat(chatId, userId, jobSearchTerms, supabaseClient);
+                      console.log('✅ Job search terms saved to career chat');
                     }
                   } catch (error) {
                     console.error('Error generating job search terms:', error);
