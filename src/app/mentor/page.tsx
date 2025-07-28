@@ -1,47 +1,64 @@
-import { redirect } from 'next/navigation';
-import { createServerSupabaseClient, createAdminSupabaseClient } from '@/lib/supabase';
-import { cookies } from 'next/headers';
+"use client";
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase';
 import { generateId } from 'ai';
 
-/**
- * Auto-redirect from /mentor to /mentor/chat/[chatId]
- * Creates a new chat and redirects immediately
- */
-export default async function MentorPage() {
-  // Get server-side authentication
-  const cookieStore = await cookies();
-  const supabase = createServerSupabaseClient(cookieStore);
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  
-  if (authError || !user) {
-    redirect('/auth');
-    return;
-  }
+export default function MentorPage() {
+  const router = useRouter();
+  const supabase = createClient();
 
-  // Create new chat with admin client (bypasses RLS)
-  const id = generateId();
-  const adminClient = createAdminSupabaseClient();
-  
-  const { data, error } = await adminClient
-    .from('chats')
-    .insert({
-      id,
-      user_id: user.id,
-      title: null,
-      saved: false, // New chats are not saved by default
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    })
-    .select()
-    .single();
+  useEffect(() => {
+    const handleAuth = async () => {
+      try {
+        // Check if user is authenticated
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        
+        if (authError || !user) {
+          router.push('/auth');
+          return;
+        }
 
-  if (error) {
-    console.error('Failed to create chat:', error);
-    // If creation fails, redirect to a fallback or show error
-    redirect('/mentor/chat'); // This will handle the error case
-    return;
-  }
-  
-  // Redirect to the new chat
-  redirect(`/mentor/chat/${id}`);
+        // Create new chat
+        const id = generateId();
+        
+        const { data, error } = await supabase
+          .from('chats')
+          .insert({
+            id,
+            user_id: user.id,
+            title: null,
+            saved: false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Failed to create chat:', error);
+          router.push('/mentor/chat');
+          return;
+        }
+        
+        // Redirect to the new chat
+        router.push(`/mentor/chat/${id}`);
+      } catch (error) {
+        console.error('Auth error:', error);
+        router.push('/auth');
+      }
+    };
+
+    handleAuth();
+  }, [router, supabase]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[#E4EDFF]">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#02133B] mx-auto mb-4"></div>
+        <p className="text-[#02133B] font-medium">Setting up your chat...</p>
+      </div>
+    </div>
+  );
 }
