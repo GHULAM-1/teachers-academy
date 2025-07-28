@@ -4,8 +4,9 @@ import { redirect } from 'next/navigation';
 import { Message } from 'ai';
 import { generateId } from 'ai';
 import CareerChat from "@/components/career/career-chat";
+import ApplyDashboard from "@/components/career/apply-dashboard";
 
-const VALID_STEPS = ['discover', 'commit', 'create', 'make'];
+const VALID_STEPS = ['discover', 'commit', 'create', 'apply'];
 
 /**
  * Career chat page that loads messages server-side like AI mentor
@@ -78,6 +79,11 @@ export default async function CareerChatPage(props: {
       finalChatId = generateId();
     }
 
+    // Show Apply Dashboard for apply step, otherwise show Career Chat
+    if (currentStep === 'apply') {
+      return <ApplyDashboard />;
+    }
+    
     return <CareerChat chatId={finalChatId} initialStep={currentStep} initialMessages={messages} />;
     
   } catch (error) {

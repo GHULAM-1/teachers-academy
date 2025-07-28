@@ -18,6 +18,9 @@ import { CareerMessage } from "@/lib/career-chat-store";
 import { useCareerChatSaveDialog } from "@/hooks/use-career-chat-save-dialog";
 import SaveCareerChatDialog from "./save-career-chat-dialog";
 import { TTSPlayer } from "@/components/tts-player";
+import DownloadMaterialButton from "./download-material-button";
+import InlineEditableMaterial from "./inline-editable-material";
+import { Edit } from "lucide-react";
 
 interface CareerChatProps {
   chatId: string;
@@ -29,7 +32,7 @@ const STEPS = [
   { id: 'discover', name: 'Discover', description: 'Explore potential career paths' },
   { id: 'commit', name: 'Commit', description: 'Commit with confidence to your selected career path' },
   { id: 'create', name: 'Create Materials', description: 'Build professional materials' },
-  { id: 'make', name: 'Make the Leap', description: 'Create action plan' }
+  { id: 'apply', name: 'Apply', description: 'Apply to jobs and opportunities' }
 ];
 
 export default function CareerChat({ chatId, initialStep = 'discover', initialMessages = [] }: CareerChatProps) {
@@ -78,6 +81,17 @@ export default function CareerChat({ chatId, initialStep = 'discover', initialMe
     }
   });
 
+  // Function to update a specific message content
+  const updateMessageContent = (messageId: string, newContent: string) => {
+    setMessages(prevMessages => 
+      prevMessages.map(msg => 
+        msg.id === messageId 
+          ? { ...msg, content: newContent }
+          : msg
+      )
+    );
+  };
+
   // Check for step changes by fetching latest messages from database
   useEffect(() => {
     const checkForStepChanges = async () => {
@@ -85,6 +99,11 @@ export default function CareerChat({ chatId, initialStep = 'discover', initialMe
         const response = await fetch(`/api/career/check-step?chatId=${chatId}`);
         if (response.ok) {
           const data = await response.json();
+          console.log(`🔍 Step check result:`, { 
+            apiStep: data.currentStep, 
+            currentStep, 
+            isDifferent: data.currentStep !== currentStep 
+          });
           if (data.currentStep && data.currentStep !== currentStep) {
             console.log(`🔄 Step change detected via API: ${currentStep} → ${data.currentStep}`);
             setCurrentStep(data.currentStep);
@@ -101,6 +120,35 @@ export default function CareerChat({ chatId, initialStep = 'discover', initialMe
       checkForStepChanges();
     }
   }, [messages.length, chatId, currentStep, router]);
+
+  // Also check for step changes when isLoading changes (after AI response)
+  useEffect(() => {
+    if (!isLoading && messages.length > 0) {
+      const checkForStepChanges = async () => {
+        try {
+          const response = await fetch(`/api/career/check-step?chatId=${chatId}`);
+          if (response.ok) {
+            const data = await response.json();
+            console.log(`🔍 Post-response step check:`, { 
+              apiStep: data.currentStep, 
+              currentStep, 
+              isDifferent: data.currentStep !== currentStep 
+            });
+            if (data.currentStep && data.currentStep !== currentStep) {
+              console.log(`🔄 Step change detected after response: ${currentStep} → ${data.currentStep}`);
+              setCurrentStep(data.currentStep);
+              router.replace(`/career-change/chat/${data.currentStep}?chatId=${chatId}`);
+            }
+          }
+        } catch (error) {
+          console.error('Error checking step changes after response:', error);
+        }
+      };
+      
+      // Add a small delay to ensure the database has been updated
+      setTimeout(checkForStepChanges, 500);
+    }
+  }, [isLoading, messages.length, chatId, currentStep, router]);
 
   // Update current messages when they change
   const handleMessagesUpdate = useCallback((messages: any[]) => {
@@ -339,12 +387,60 @@ export default function CareerChat({ chatId, initialStep = 'discover', initialMe
                       <div className="flex items-start gap-2 max-w-[80%]">
                         <Image src="/logo1.png" alt="AI Avatar" width={24} height={24} className="mt-1 flex-shrink-0"/>
                         <div className="flex flex-col gap-2">
-                          <div className="text-base text-[#02133B] font-normal bg-transparent whitespace-pre-wrap">
-                            {message.content && typeof message.content === 'string' 
-                              ? message.content.replace('AUDIO_MESSAGE', '').trim()
-                              : message.content
+                          {/* Show original message content only if it's not a material that we're displaying with the editable component */}
+                          {(() => {
+                            const content = typeof message.content === 'string' ? message.content : '';
+                            const isMaterial = content.startsWith('[RESUME]') || 
+                                             content.startsWith('[COVER_LETTER]') || 
+                                             content.startsWith('[LINKEDIN]') || 
+                                             content.startsWith('[OUTREACH]');
+                            
+                            // Don't show the original content if it's a material (we'll show it in the editable component)
+                            if (isMaterial) {
+                              return null;
                             }
-                          </div>
+                            
+                            return (
+                              <div className="text-base text-[#02133B] font-normal bg-transparent whitespace-pre-wrap">
+                                {content.replace('AUDIO_MESSAGE', '').trim()}
+                              </div>
+                            );
+                          })()}
+                          
+                          {/* Show download buttons for generated materials */}
+                          {currentStep === 'create' && message.role === 'assistant' && message.content && (
+                            (() => {
+                              const content = typeof message.content === 'string' ? message.content : '';
+                              
+                              // Detect material type using the same identifiers as the API
+                              let materialType: 'resume' | 'cover_letter' | 'linkedin' | 'outreach' | null = null;
+                              if (content.startsWith('[RESUME]')) {
+                                materialType = 'resume';
+                              } else if (content.startsWith('[COVER_LETTER]')) {
+                                materialType = 'cover_letter';
+                              } else if (content.startsWith('[LINKEDIN]')) {
+                                materialType = 'linkedin';
+                              } else if (content.startsWith('[OUTREACH]')) {
+                                materialType = 'outreach';
+                              }
+                              
+                              return materialType ? (
+                                <InlineEditableMaterial
+                                  materialType={materialType}
+                                  content={content}
+                                  title={`${materialType.replace('_', ' ').toUpperCase()}`}
+                                  onSave={(updatedContent) => {
+                                    // Update the message content in the chat
+                                    console.log('Material updated:', updatedContent);
+                                    updateMessageContent(message.id, updatedContent);
+                                  }}
+                                  onCancel={() => {
+                                    console.log('Edit cancelled');
+                                  }}
+                                />
+                              ) : null;
+                            })()
+                          )}
                           {/* Show TTS player if this is a voice recording response */}
                           {(message as any).hasVoiceRecording || 
                            (message.content && 

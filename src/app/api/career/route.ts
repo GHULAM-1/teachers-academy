@@ -4,6 +4,8 @@ import { saveCareerChatWithUser, updateCareerChatTitleWithUser } from '@/lib/car
 import { createServerSupabaseClient, createAdminSupabaseClient } from '@/lib/supabase';
 import { matchJobsToAnswers, DiscoveryAnswers, JobMatch } from '@/lib/job-matching';
 import { detectMindsetTriggers, MINDSET_TOOLS, getMindsetToolById } from '@/lib/mindset-tools';
+import { saveCareerMaterialToProfile, MaterialType } from '@/lib/career-materials';
+import { saveJobSearchTermsToProfile } from '@/lib/career-materials';
 import { cookies } from 'next/headers';
 import dotenv from 'dotenv';
 
@@ -13,7 +15,7 @@ const CAREER_STEPS = {
   'discover': 1,
   'commit': 2,
   'create': 3,
-  'make': 4
+  'apply': 4
 } as const;
 
 const DISCOVERY_QUESTIONS = [
@@ -69,25 +71,156 @@ Focus on:
 
 Use a warm, supportive tone and let the user guide the pace.`,
 
-  'create': `You are helping the user create professional materials for their career transition. Focus on:
-- Crafting a compelling resume that highlights transferable teaching skills
-- Writing targeted cover letters for specific roles/industries
-- Creating a LinkedIn profile that positions them for their new career
-- Developing a portfolio or work samples if relevant
-- Preparing for interviews and common questions about career transitions
-- Building a professional network in their target industry
+  'create': `You are helping the user prepare application materials for their career transition. Follow this EXACT flow:
 
-Help them create polished, professional materials that tell their career transition story effectively.`,
+**STAGE 1: MATERIAL SELECTION**
+When user commits to a career path, show:
+"🎉 Congratulations on choosing your new direction! Now let's prepare your application materials for [career path]. What would you like to start with?"
 
-  'make': `You are helping the user create an action plan for their career transition. Focus on:
-- Creating a timeline with specific milestones and deadlines
-- Identifying immediate next steps and quick wins
-- Planning for skill development, networking, and job search activities
-- Setting up tracking systems for applications and opportunities
-- Preparing for potential obstacles and setbacks
-- Building confidence and momentum for the transition
+Offer these options:
+- 📄 Resume Builder
+- 📝 Cover Letter Assistant  
+- 💼 LinkedIn Profile Rebrand
+- 📧 Outreach Message Builder
+- 🔍 Explore All Options
 
-Help them create a concrete, actionable plan with clear steps they can start taking immediately.`
+**STAGE 2: CONFIDENCE BOOST (Optional)**
+Before launching each tool, prompt the user:
+"Before we begin, would you like a quick tip to boost your confidence when writing your [resume/cover letter/etc.]?"
+
+If user says "Yes," display a 2–3 sentence mindset tip relevant to the tool and job path.
+Example (Resume + Instructional Designer):
+"You've already designed learning every day in your classroom. Instructional designers do the same thing — just with adults and online."
+
+If user selects "No thanks," skip tip and launch chat tool.
+
+**STAGE 3: TOOL-SPECIFIC FLOWS**
+
+**RESUME BUILDER - Step-by-Step Chat Prompts:**
+1. "Let's start by summarizing your teaching background. What subjects or grade levels have you taught?"
+2. "What's a standout achievement from your teaching career?"
+3. "What tech tools or platforms are you confident using?"
+4. "Would you like resume bullets written using the STAR method?"
+
+**System Logic & Output:**
+- AI maps teaching skills to target job (e.g., curriculum planning → instructional design).
+- Outputs 3–5 tailored bullet points based on user input.
+- **CRITICAL: When generating the final resume, ALWAYS start with "[RESUME]" on the first line.**
+- **DO NOT add explanations like "Here's your resume" or "This resume is tailored for..."**
+- **DO NOT add questions like "Would you like to save this?"**
+- **START with "[RESUME]" then provide the resume content:**
+  - Begin with the name
+  - Include Contact Info, Summary, Experience, Education, Skills, Certifications
+  - Use clear formatting with *section names*
+  - End with the last section, no additional text
+
+**COVER LETTER ASSISTANT:**
+1. "What excites you about becoming a [job title]?"
+2. "Why do you feel you're a strong candidate?"
+3. "Do you have a specific job posting in mind? You can paste it here."
+4. **CRITICAL: When generating the final cover letter, ALWAYS start with "[COVER_LETTER]" on the first line.**
+5. **START with "[COVER_LETTER]" then provide the letter content starting with "Dear Hiring Manager," and ending with "Sincerely,"**
+6. **DO NOT add explanations or questions after the letter**
+
+**LINKEDIN REBRAND:**
+1. "Do you want to update your LinkedIn headline to match your new direction?"
+2. "Would you like a draft of your 'About' section tailored to [job title]?"
+3. "Let's highlight transferable skills in your Experience section."
+4. **CRITICAL: When generating LinkedIn content, ALWAYS start with "[LINKEDIN]" on the first line.**
+5. **START with "[LINKEDIN]" then provide the LinkedIn sections (Headline, About, Experience)**
+6. **DO NOT add explanations or questions after the content**
+
+**OUTREACH MESSAGE BUILDER:**
+1. "Want to reach out to someone already working as a [job title]?"
+2. "Looking for a message you can send asking for a quick coffee chat?"
+3. "Would you like templates for following up?"
+4. **CRITICAL: When generating outreach messages, ALWAYS start with "[OUTREACH]" on the first line.**
+5. **START with "[OUTREACH]" then provide the message templates**
+6. **DO NOT add explanations or questions after the messages**
+
+**EXPLORE ALL:**
+- Show overview of all tools and their benefits
+- Let user choose which to start with
+
+**CRITICAL RULE: When generating ANY final material (resume, cover letter, LinkedIn, outreach), you MUST:**
+1. **START IMMEDIATELY with the material identifier** (e.g., [RESUME], [COVER_LETTER], etc.)
+2. **DO NOT add ANY introductory text** like "Let's craft a..." or "Here we go:" or "I'll create..."
+3. **DO NOT add ANY ending text** like "This resume highlights..." or "Feel free to...." or "I'll create..."
+4. **DO NOT add ANY explanations** about what you're doing
+5. **DO NOT add ANY questions** after the material
+6. **JUST the identifier + content, nothing else**
+
+**Example of CORRECT format:**
+[COVER_LETTER]
+Dear Hiring Manager,
+I am writing to express my interest...
+[rest of letter]
+Sincerely,
+[Name]
+
+**Example of WRONG format:**
+Let's craft a cover letter for you...
+Here we go:
+[COVER_LETTER]
+Dear Hiring Manager,
+...
+
+Keep responses conversational during the Q&A phase, but when generating final materials, be completely silent except for the identifier + content.
+
+**STAGE 4: TRANSITION TO APPLY STEP**
+After generating any material (resume, cover letter, LinkedIn, outreach), ask the user:
+"Great! You now have your [material type] ready. What would you like to do next?"
+
+Offer these options:
+1. **🚀 Move to Apply Step** - "I'm ready to start applying to jobs"
+2. **📝 Generate More Materials** - "I'd like to create another material first"
+3. **✏️ Edit This Material** - "I want to refine what we just created"
+
+If user chooses "Move to Apply Step", transition to the apply step by saying:
+"Perfect! Let's move to the Apply step where we'll help you find and apply to relevant job opportunities for your [career path]."
+
+If user chooses "Generate More Materials", return to the material selection menu.
+
+If user chooses "Edit This Material", help them refine the current material.`,
+
+  'apply': `You are helping the user actively apply to jobs and opportunities in their chosen career path. Your role is to guide them through the job search and application process.
+
+**STAGE 1: JOB SEARCH STRATEGY**
+Help them develop a targeted job search strategy:
+- Identify the best job boards and platforms for their field
+- Set up job alerts and notifications
+- Create a tracking system for applications
+- Research target companies and roles
+
+**STAGE 2: APPLICATION PROCESS**
+Guide them through the application process:
+- Help them customize their materials for specific job postings
+- Review and refine their application materials
+- Prepare for different application formats (online forms, email, etc.)
+- Create application templates and scripts
+
+**STAGE 3: NETWORKING AND OUTREACH**
+Support their networking efforts:
+- Help them craft outreach messages to professionals in their field
+- Guide them through informational interviews
+- Assist with LinkedIn networking strategies
+- Create follow-up templates and scripts
+
+**STAGE 4: INTERVIEW PREPARATION**
+Prepare them for interviews:
+- Help them research companies and roles
+- Create interview question responses
+- Practice common interview scenarios
+- Develop questions to ask interviewers
+
+**STAGE 5: FOLLOW-UP AND TRACKING**
+Help them stay organized:
+- Create follow-up email templates
+- Set up application tracking systems
+- Plan for rejection handling and persistence
+- Celebrate wins and progress
+
+Focus on being practical, encouraging, and helping them take concrete action steps toward their career goals.`
 };
 
 
@@ -95,6 +228,26 @@ Help them create a concrete, actionable plan with clear steps they can start tak
 
 
 async function handleCommitFlow(messages: any[], chatId: string, userId: string, profile: any, supabaseClient: any) {
+  // Analyze conversation to determine if user is ready to move to prepare stage
+  const allUserMessages = messages.filter(m => m.role === 'user');
+  const userMessages = messages.filter(m => 
+    m.role === 'user' && 
+    m.content && 
+    m.content.trim() !== '' && 
+    m.content.trim() !== 'start' &&
+    m.content.trim() !== 'begin'
+  );
+  
+  // Check if user has confirmed they're ready to move forward
+  // Only trigger if they've completed the commit phase and explicitly want to move forward
+  const lastUserMessage = allUserMessages[allUserMessages.length - 1]?.content?.toLowerCase() || '';
+  
+  // Count meaningful user responses in commit phase
+  const commitResponses = userMessages.length;
+  
+  // Let AI handle everything naturally - no programmatic detection needed
+  // The AI has all the context and can determine the flow based on the conversation
+  
   // Create a comprehensive prompt that guides the AI through the exact process
   const commitPrompt = `You are a Mindset Coach helping a teacher feel emotionally and mentally ready to pursue a new career path.
 
@@ -123,11 +276,40 @@ When you detect a trigger, offer the appropriate tool with its specific prompt a
 STEP 4: After 1-2 mindset tools OR confidence score ≥ 7/10, ask:
 "Thanks for being open. Based on our chat, do you feel ready to keep going with this new direction?"
 
+STEP 5: If user confirms readiness, ask for their specific career choice:
+"Great! Which specific career path are you committed to pursuing? Please tell me the exact role or position you want to focus on."
+
+STEP 6: After user specifies their career choice:
+- Acknowledge their choice with enthusiasm
+- Confirm their commitment
+- Generate specific job search terms for this career path
+- Transition to prepare materials stage by saying:
+"🎉 That's a fantastic choice! A [career name] role will allow you to make a significant impact through your skills and experience. Your background in teaching and problem-solving abilities will serve you well in this new path. Embrace this opportunity to grow and make a difference!
+
+Now let's prepare your application materials for your [career name] career transition. What would you like to start with?
+
+📄 **Resume Builder** - Create a compelling resume that highlights your transferable teaching skills
+📝 **Cover Letter Assistant** - Write targeted cover letters for specific roles
+💼 **LinkedIn Profile Rebrand** - Update your profile to match your new direction
+📧 **Outreach Message Builder** - Create messages for networking and informational interviews
+🔍 **Explore All Options** - Get an overview of all tools and their benefits
+
+Which would you like to begin with?"
+
+IMPORTANT: After the user confirms their career choice, generate a single, specific job search term that best represents their chosen career path. This should be:
+- One specific job title or role (1-3 words max)
+- Perfect for job searching
+- Based on the entire conversation context
+
+Example: "instructional designer", "corporate trainer", "learning specialist"
+
+Save this term to their profile for use in job search links.
+
 SPECIAL HANDLING:
 
 If user wants to give up or quit:
 - Acknowledge their feelings: "I hear that this feels overwhelming right now."
-- Offer options: "You have a few choices: 1) Take a break and come back later, 2) Go back to the discovery phase to explore different options, 3) Continue with a different approach. What feels right to you?"
+- Offer options: "You have a few choices: 1) Take a break and come back later, 2) Go back to the discovery phase  to explore different options, 3) Continue with a different approach. What feels right to you?"
 
 If user requests voice recording or audio:
 - Generate ONLY the motivational speech content (30-60 seconds) that addresses their specific concerns
@@ -345,16 +527,93 @@ CRITICAL RULES:
           
           console.log('🔍 Clean message with metadata:', cleanMessage);
 
+          // Check if AI is transitioning to prepare stage
+          const isTransitioningToPrepare = cleanContent && (
+            cleanContent.includes('🎉 That\'s a fantastic choice!') ||
+            cleanContent.includes('Now let\'s prepare your application materials') ||
+            cleanContent.includes('📄 **Resume Builder**') ||
+            cleanContent.includes('📝 **Cover Letter Assistant**') ||
+            cleanContent.includes('💼 **LinkedIn Profile Rebrand**') ||
+            cleanContent.includes('📧 **Outreach Message Builder**')
+          );
+          
+          const currentStep = isTransitioningToPrepare ? 'create' : 'commit';
+
+          // Generate and save job search terms when transitioning to prepare stage
+          if (isTransitioningToPrepare) {
+            try {
+              console.log('🎯 Generating job search terms for career transition');
+              
+              // Generate job search term based purely on conversation context
+              const jobSearchTermsPrompt = `Based on this entire conversation about the user's career transition, suggest a single, specific job search term that best represents their chosen career path.
+
+Conversation context: ${messages.map(m => `${m.role}: ${m.content}`).join('\n')}
+
+Respond with only ONE word or short phrase (2-3 words max) that would be perfect for job searching. No explanations, just the term.
+
+Examples:
+- "instructional designer"
+- "corporate trainer" 
+- "learning specialist"
+- "curriculum developer"
+- "educational consultant"
+
+Your suggestion:`;
+
+              const jobSearchResult = await streamText({
+                model: openai('gpt-3.5-turbo'),
+                messages: [{ role: 'user', content: jobSearchTermsPrompt }],
+                maxTokens: 50,
+                async onFinish({ response }) {
+                  try {
+                    let jobSearchTerms = '';
+                    
+                    if (response.messages && response.messages.length > 0) {
+                      const lastMessage = response.messages[response.messages.length - 1];
+                      if (lastMessage.role === 'assistant' && lastMessage.content) {
+                        if (typeof lastMessage.content === 'string') {
+                          jobSearchTerms = lastMessage.content.trim();
+                        } else if (Array.isArray(lastMessage.content)) {
+                          jobSearchTerms = lastMessage.content
+                            .filter(item => item.type === 'text')
+                            .map(item => item.text)
+                            .join(' ')
+                            .trim();
+                        }
+                      }
+                    }
+                    
+                    if (jobSearchTerms) {
+                      console.log('🎯 Generated job search terms:', jobSearchTerms);
+                      await saveJobSearchTermsToProfile(userId, jobSearchTerms);
+                      console.log('✅ Job search terms saved to profile');
+                    }
+                  } catch (error) {
+                    console.error('Error generating job search terms:', error);
+                  }
+                }
+              });
+              
+                             // Job search terms will be generated in the onFinish callback
+              
+            } catch (error) {
+              console.error('Error in job search terms generation:', error);
+            }
+          }
+          
           // Save the clean response
-          console.log(`🤖 Saving clean AI response for commit step`);
+          console.log(`🤖 Saving clean AI response for ${currentStep} step`);
           await saveCareerChatWithUser({
             id: chatId,
             userId,
-            messages: [{ ...cleanMessage, step: 'commit' }],
-            currentStep: 'commit',
+            messages: [{ ...cleanMessage, step: currentStep }],
+            currentStep: currentStep,
             supabaseClient,
           });
           console.log(`✅ Clean AI response saved successfully`);
+
+          // Detect and save career materials
+          await detectAndSaveMaterials(cleanContent, userId, currentStep);
 
           if (messages.length === 1 && messages[0].role === 'user') {
             const title = `Career Commit Session`;
@@ -379,6 +638,91 @@ CRITICAL RULES:
   }
 }
 
+// Function to detect and save career materials
+async function detectAndSaveMaterials(
+  content: string, 
+  userId: string, 
+  currentStep: string
+): Promise<void> {
+  try {
+    // Only save materials in the 'create' step
+    if (currentStep !== 'create') return;
+
+    console.log('🔍 Checking for materials in content:', content.substring(0, 100) + '...');
+    const lowerContent = content.toLowerCase();
+    
+        // Detect resume content - look for [RESUME] identifier
+    console.log('🔍 Checking for resume content...');
+    if (content.startsWith('[RESUME]')) {
+      console.log('📄 Resume content detected!');
+      
+      // Remove the [RESUME] identifier and save the content
+      const resumeContent = content.substring(8).trim(); // Remove "[RESUME]" (8 characters)
+      
+      await saveCareerMaterialToProfile(
+        userId,
+        'resume',
+        resumeContent,
+        'Professional Resume'
+      );
+      console.log('✅ Resume saved to profile');
+    }
+    
+    // Detect cover letter content - look for [COVER_LETTER] identifier
+    console.log('🔍 Checking for cover letter content...');
+    if (content.startsWith('[COVER_LETTER]')) {
+      console.log('📝 Cover letter content detected!');
+      
+      // Remove the [COVER_LETTER] identifier and save the content
+      const letterContent = content.substring(14).trim(); // Remove "[COVER_LETTER]" (14 characters)
+      
+      await saveCareerMaterialToProfile(
+        userId,
+        'cover_letter',
+        letterContent,
+        'Cover Letter'
+      );
+      console.log('✅ Cover letter saved to profile');
+    }
+    
+    // Detect LinkedIn content - look for [LINKEDIN] identifier
+    console.log('🔍 Checking for LinkedIn content...');
+    if (content.startsWith('[LINKEDIN]')) {
+      console.log('💼 LinkedIn content detected!');
+      
+      // Remove the [LINKEDIN] identifier and save the content
+      const linkedinContent = content.substring(10).trim(); // Remove "[LINKEDIN]" (10 characters)
+      
+      await saveCareerMaterialToProfile(
+        userId,
+        'linkedin',
+        linkedinContent,
+        'LinkedIn Profile Content'
+      );
+      console.log('✅ LinkedIn content saved to profile');
+    }
+    
+    // Detect outreach content - look for [OUTREACH] identifier
+    console.log('🔍 Checking for outreach content...');
+    if (content.startsWith('[OUTREACH]')) {
+      console.log('📧 Outreach content detected!');
+      
+      // Remove the [OUTREACH] identifier and save the content
+      const outreachContent = content.substring(10).trim(); // Remove "[OUTREACH]" (10 characters)
+      
+      await saveCareerMaterialToProfile(
+        userId,
+        'outreach',
+        outreachContent,
+        'Outreach Messages'
+      );
+      console.log('✅ Outreach content saved to profile');
+    }
+  } catch (error) {
+    console.error('Error saving career material:', error);
+  }
+}
+
 async function createDirectResponse(content: string, messages: any[], chatId: string, userId: string, supabaseClient: any, step: string = 'discover') {
   try {
     // Create a direct response without using streamText to avoid JSON formatting
@@ -400,6 +744,9 @@ async function createDirectResponse(content: string, messages: any[], chatId: st
         supabaseClient,
       });
       console.log(`✅ Direct AI response saved successfully`);
+
+      // Detect and save career materials
+      await detectAndSaveMaterials(content, userId, step);
 
       // Set title for the first interaction (when we have 0 or 1 message)
       if (messages.length <= 1) {
@@ -433,6 +780,169 @@ async function createDirectResponse(content: string, messages: any[], chatId: st
       headers: { 'Content-Type': 'application/json' }
     });
   }
+}
+
+async function handlePrepareFlow(messages: any[], chatId: string, userId: string, profile: any, supabaseClient: any) {
+  // Analyze conversation to determine current sub-step
+  const allUserMessages = messages.filter(m => m.role === 'user');
+  const userMessages = messages.filter(m => 
+    m.role === 'user' && 
+    m.content && 
+    m.content.trim() !== '' && 
+    m.content.trim() !== 'start' &&
+    m.content.trim() !== 'begin'
+  );
+  
+  console.log(`🔧 Prepare Flow Debug:`, {
+    totalMessages: messages.length,
+    allUserMessages: allUserMessages.length,
+    filteredUserMessages: userMessages.length,
+    lastUserMessage: allUserMessages[allUserMessages.length - 1]?.content
+  });
+  
+  // Check if this is the first interaction in prepare stage
+  if (userMessages.length === 0) {
+    // First interaction - show material selection
+    const responseContent = `🎉 Congratulations on choosing your new direction! Now let's prepare your application materials for your career transition. What would you like to start with?
+
+📄 **Resume Builder** - Create a compelling resume that highlights your transferable teaching skills
+📝 **Cover Letter Assistant** - Write targeted cover letters for specific roles
+💼 **LinkedIn Profile Rebrand** - Update your profile to match your new direction
+📧 **Outreach Message Builder** - Create messages for networking and informational interviews
+🔍 **Explore All Options** - Get an overview of all tools and their benefits
+
+Which would you like to begin with?`;
+    
+    return createDirectResponse(responseContent, messages, chatId, userId, supabaseClient, 'create');
+  }
+  
+  // Handle material selection
+  const lastUserMessage = allUserMessages[allUserMessages.length - 1]?.content?.toLowerCase() || '';
+  
+  if (lastUserMessage.includes('resume') || lastUserMessage.includes('cv')) {
+    return createDirectResponse(`📄 Great choice! Let's build your resume.
+
+Before we begin, would you like a quick tip to boost your confidence when writing your resume?
+
+(You can say "Yes" for a confidence boost, or "No thanks" to start immediately)`, messages, chatId, userId, supabaseClient, 'create');
+  }
+  
+  if (lastUserMessage.includes('cover letter') || lastUserMessage.includes('letter')) {
+    return createDirectResponse(`📝 Perfect! Let's create your cover letter.
+
+Before we begin, would you like a quick tip to boost your confidence when writing your cover letter?
+
+(You can say "Yes" for a confidence boost, or "No thanks" to start immediately)`, messages, chatId, userId, supabaseClient, 'create');
+  }
+  
+  if (lastUserMessage.includes('linkedin') || lastUserMessage.includes('profile')) {
+    return createDirectResponse(`💼 Excellent! Let's rebrand your LinkedIn profile.
+
+Before we begin, would you like a quick tip to boost your confidence when updating your LinkedIn profile?
+
+(You can say "Yes" for a confidence boost, or "No thanks" to start immediately)`, messages, chatId, userId, supabaseClient, 'create');
+  }
+  
+  if (lastUserMessage.includes('outreach') || lastUserMessage.includes('message') || lastUserMessage.includes('networking')) {
+    return createDirectResponse(`📧 Fantastic! Let's build your outreach messages.
+
+Before we begin, would you like a quick tip to boost your confidence when reaching out to professionals?
+
+(You can say "Yes" for a confidence boost, or "No thanks" to start immediately)`, messages, chatId, userId, supabaseClient, 'create');
+  }
+  
+  if (lastUserMessage.includes('explore') || lastUserMessage.includes('all') || lastUserMessage.includes('overview')) {
+    return createDirectResponse(`🔍 Here's an overview of all the tools we can help you with:
+
+**📄 Resume Builder**
+- Step-by-step guidance to create a compelling resume
+- Highlight transferable teaching skills
+- Use STAR method for achievement bullets
+- Tailored to your target career
+
+**📝 Cover Letter Assistant**
+- Write targeted cover letters for specific roles
+- 3-paragraph structure (Intro – Skills – Enthusiasm)
+- Customized to job postings
+- Avoid repeating resume content
+
+**💼 LinkedIn Profile Rebrand**
+- Update headline to match new direction
+- Rewrite "About" section
+- Highlight transferable skills in experience
+- Professional networking optimization
+
+**📧 Outreach Message Builder**
+- Cold message templates for networking
+- Informational interview requests
+- Follow-up message templates
+- Professional relationship building
+
+Which tool would you like to start with?`, messages, chatId, userId, supabaseClient, 'create');
+  }
+  
+  // Handle confidence boost responses
+  if (lastUserMessage.includes('yes') || lastUserMessage.includes('sure') || lastUserMessage.includes('okay')) {
+    return createDirectResponse(`💪 Here's your confidence boost:
+
+You've already designed learning experiences every day in your classroom. You've managed complex projects, adapted to different learning styles, and achieved measurable results. These are exactly the skills that make you valuable in any professional setting. You're not starting from scratch – you're building on a strong foundation of transferable expertise.
+
+Now let's get started! What would you like to work on first?`, messages, chatId, userId, supabaseClient, 'create');
+  }
+  
+  if (lastUserMessage.includes('no') || lastUserMessage.includes('thanks') || lastUserMessage.includes('skip')) {
+    return createDirectResponse(`Perfect! Let's dive right in. What would you like to work on first?
+
+📄 Resume Builder
+📝 Cover Letter Assistant  
+💼 LinkedIn Profile Rebrand
+📧 Outreach Message Builder`, messages, chatId, userId, supabaseClient, 'create');
+  }
+  
+  // Handle actual material generation requests
+  // Check if user wants to start building a specific material
+  if (lastUserMessage.includes('start') || lastUserMessage.includes('begin') || lastUserMessage.includes('build') || lastUserMessage.includes('create')) {
+    // Determine which material they want to work on based on previous context
+    const previousMessages = messages.slice(-5); // Look at last 5 messages for context
+    const contextText = previousMessages.map(m => m.content).join(' ').toLowerCase();
+    
+    if (contextText.includes('resume') || contextText.includes('cv')) {
+      // Start resume building process
+      return createDirectResponse(`📄 Let's start building your resume!
+
+Let's start by summarizing your teaching background. What subjects or grade levels have you taught?`, messages, chatId, userId, supabaseClient, 'create');
+    }
+    
+    if (contextText.includes('cover letter') || contextText.includes('letter')) {
+      // Start cover letter process
+      return createDirectResponse(`📝 Let's create your cover letter!
+
+What excites you about becoming a [job title]?`, messages, chatId, userId, supabaseClient, 'create');
+    }
+    
+    if (contextText.includes('linkedin') || contextText.includes('profile')) {
+      // Start LinkedIn process
+      return createDirectResponse(`💼 Let's rebrand your LinkedIn profile!
+
+Do you want to update your LinkedIn headline to match your new direction?`, messages, chatId, userId, supabaseClient, 'create');
+    }
+    
+    if (contextText.includes('outreach') || contextText.includes('message') || contextText.includes('networking')) {
+      // Start outreach process
+      return createDirectResponse(`📧 Let's build your outreach messages!
+
+Want to reach out to someone already working as a [job title]?`, messages, chatId, userId, supabaseClient, 'create');
+    }
+  }
+  
+  // Default response for unrecognized input
+  return createDirectResponse(`I'm here to help you prepare your application materials! What would you like to work on?
+
+📄 Resume Builder
+📝 Cover Letter Assistant  
+💼 LinkedIn Profile Rebrand
+📧 Outreach Message Builder
+🔍 Explore All Options`, messages, chatId, userId, supabaseClient, 'create');
 }
 
 async function handleDiscoverFlow(messages: any[], chatId: string, userId: string, profile: any, supabaseClient: any) {
@@ -599,7 +1109,7 @@ export async function POST(req: Request) {
   }
 
   if (!step || !STEP_PROMPTS[step as keyof typeof STEP_PROMPTS]) {
-    return new Response('Valid step is required (discover, commit, create, make)', { status: 400 });
+    return new Response('Valid step is required (discover, commit, create, apply)', { status: 400 });
   }
 
   if (!messages || !Array.isArray(messages)) {
@@ -720,6 +1230,239 @@ export async function POST(req: Request) {
   if (currentStep === 'commit') {
     console.log(`🧠 Using handleCommitFlow for step: ${currentStep}`);
     return await handleCommitFlow(messages, id, user.id, profile, adminClient);
+  }
+
+  // Handle create/prepare step with AI generation
+  if (currentStep === 'create') {
+    console.log(`🔧 Using AI generation for create step: ${currentStep}`);
+    
+    // Use the detailed create prompt to let AI generate materials
+    const createPrompt = STEP_PROMPTS['create'];
+    
+    const result = await streamText({
+      model: openai('gpt-3.5-turbo'),
+      messages,
+      system: `${createPrompt}
+
+**USER PROFILE:**
+Name: ${profile?.preferred_name || 'there'}
+Current Role: ${profile?.role_title || 'Not specified'}
+Students/Subjects: ${profile?.students_and_subjects || 'Not specified'}
+Career Goals: ${profile?.career_goals || 'Not specified'}
+Biggest Obstacle: ${profile?.biggest_obstacle || 'Not specified'}
+Top Skills: ${profile?.top_skills || 'Not specified'}
+Why Exploring: ${profile?.exploring_opportunities || 'Not specified'}
+
+**CURRENT STEP:** Step 3 - CREATE MATERIALS
+
+**INSTRUCTIONS:**
+- You are helping the user prepare application materials for their career transition
+- Follow the exact flow specified in the prompt above
+- When generating materials (resume, cover letter, etc.), provide the complete, well-formatted content
+- Use the user's teaching background and profile information
+- Be practical, encouraging, and action-oriented
+- Keep responses conversational and supportive`,
+      
+      async onFinish({ response }) {
+        try {
+          console.log(`🤖 Saving AI response for create step`);
+          
+          // Extract clean text content from AI responses
+          const newResponseMessages = response.messages.map(msg => {
+            let cleanContent = msg.content;
+            
+            // Handle different content formats
+            if (typeof msg.content === 'string') {
+              // If content is a JSON array, extract the text
+              if (msg.content.startsWith('[')) {
+                try {
+                  const parsed = JSON.parse(msg.content);
+                  if (Array.isArray(parsed)) {
+                    // Extract all text parts and join them
+                    cleanContent = parsed
+                      .filter(item => item.type === 'text')
+                      .map(item => item.text)
+                      .join('');
+                  }
+                } catch (e) {
+                  console.log('Failed to parse JSON content:', e);
+                  cleanContent = msg.content;
+                }
+              }
+            } else if (Array.isArray(msg.content)) {
+              // Handle array format directly
+              cleanContent = msg.content
+                .filter(item => item.type === 'text')
+                .map(item => item.text)
+                .join('');
+            }
+            
+            console.log('🔍 Cleaned content:', typeof cleanContent === 'string' ? cleanContent.substring(0, 100) + '...' : 'Non-string content');
+            
+            return {
+              ...msg,
+              content: cleanContent
+            };
+          });
+
+          // Check if user wants to move to apply step OR if AI response indicates transition
+          const lastUserMessage = messages[messages.length - 1]?.content?.toLowerCase() || '';
+          const lastAIResponseContent = newResponseMessages[newResponseMessages.length - 1]?.content;
+          const lastAIResponse = typeof lastAIResponseContent === 'string' ? lastAIResponseContent.toLowerCase() : '';
+          
+          console.log('🔍 Transition check:', {
+            lastUserMessage: lastUserMessage.substring(0, 100),
+            lastAIResponse: lastAIResponse.substring(0, 100),
+            hasUserTransition: lastUserMessage.includes('move to apply') || 
+                              lastUserMessage.includes('apply step') || 
+                              lastUserMessage.includes('start applying') ||
+                              lastUserMessage.includes('ready to apply') ||
+                              lastUserMessage.includes('🚀 move to apply step') ||
+                              lastUserMessage.includes('im ready to start applying to jobs'),
+            hasAITransition: lastAIResponse.includes('lets move to the apply step') ||
+                            lastAIResponse.includes('move to the apply step') ||
+                            lastAIResponse.includes('apply step where we\'ll help you') ||
+                            lastAIResponse.includes('lets move to the apply step') ||
+                            lastAIResponse.includes('perfect! let\'s move to the apply step')
+          });
+          
+          const wantsToMoveToApply = lastUserMessage.includes('move to apply') || 
+                                   lastUserMessage.includes('apply step') || 
+                                   lastUserMessage.includes('start applying') ||
+                                   lastUserMessage.includes('ready to apply') ||
+                                   lastUserMessage.includes('🚀 move to apply step') ||
+                                   lastUserMessage.includes('im ready to start applying to jobs') ||
+                                   lastAIResponse.includes('lets move to the apply step') ||
+                                   lastAIResponse.includes('move to the apply step') ||
+                                   lastAIResponse.includes('apply step where we\'ll help you') ||
+                                   lastAIResponse.includes('perfect! let\'s move to the apply step') ||
+                                   lastAIResponse.includes('let\'s move to the apply step') ||
+                                   lastAIResponse.includes('move to the apply step where we\'ll help you');
+
+          if (wantsToMoveToApply) {
+            console.log(`🚀 Transitioning to apply step`);
+            // Update the current step for this response
+            currentStep = 'apply';
+            console.log(`✅ Step updated to 'apply' for this response`);
+          }
+
+          // Save the clean response with the correct step
+          await saveCareerChatWithUser({
+            id,
+            userId: user.id,
+            messages: newResponseMessages.map(msg => ({ ...msg, step: currentStep })),
+            currentStep: currentStep,
+            supabaseClient: adminClient,
+          });
+          
+          console.log(`💾 Saved AI response with step: ${currentStep}`);
+
+          // Detect and save career materials
+          for (const msg of newResponseMessages) {
+            if (msg.content && typeof msg.content === 'string') {
+              await detectAndSaveMaterials(msg.content, user.id, currentStep);
+            }
+          }
+          
+          console.log(`✅ AI response saved successfully for create step`);
+        } catch (error) {
+          console.error('Error saving AI response:', error);
+        }
+      },
+    });
+
+    return result.toDataStreamResponse();
+  }
+
+  // Handle apply step with structured flow
+  if (currentStep === 'apply') {
+    console.log(`🚀 Using AI generation for apply step: ${currentStep}`);
+    
+    // Use the detailed apply prompt to let AI guide job search and application
+    const applyPrompt = STEP_PROMPTS['apply'];
+    
+    const result = await streamText({
+      model: openai('gpt-3.5-turbo'),
+      messages,
+      system: `${applyPrompt}
+
+**USER PROFILE:**
+Name: ${profile?.preferred_name || 'there'}
+Current Role: ${profile?.role_title || 'Not specified'}
+Students/Subjects: ${profile?.students_and_subjects || 'Not specified'}
+Career Goals: ${profile?.career_goals || 'Not specified'}
+Biggest Obstacle: ${profile?.biggest_obstacle || 'Not specified'}
+Top Skills: ${profile?.top_skills || 'Not specified'}
+Why Exploring: ${profile?.exploring_opportunities || 'Not specified'}
+
+**CURRENT STEP:** Step 4 - APPLY TO JOBS
+
+**INSTRUCTIONS:**
+- You are helping the user actively apply to jobs and opportunities
+- Guide them through job search strategy, application process, networking, and interview preparation
+- Be practical, encouraging, and action-oriented
+- Help them take concrete steps toward their career goals
+- Keep responses conversational and supportive`,
+      
+      async onFinish({ response }) {
+        try {
+          console.log(`🤖 Saving AI response for apply step`);
+          
+          // Extract clean text content from AI responses
+          const newResponseMessages = response.messages.map(msg => {
+            let cleanContent = msg.content;
+            
+            // Handle different content formats
+            if (typeof msg.content === 'string') {
+              // If content is a JSON array, extract the text
+              if (msg.content.startsWith('[')) {
+                try {
+                  const parsed = JSON.parse(msg.content);
+                  if (Array.isArray(parsed)) {
+                    // Extract all text parts and join them
+                    cleanContent = parsed
+                      .filter(item => item.type === 'text')
+                      .map(item => item.text)
+                      .join('');
+                  }
+                } catch (e) {
+                  console.log('Failed to parse JSON content:', e);
+                  cleanContent = msg.content;
+                }
+              }
+            } else if (Array.isArray(msg.content)) {
+              // Handle array format directly
+              cleanContent = msg.content
+                .filter(item => item.type === 'text')
+                .map(item => item.text)
+                .join('');
+            }
+            
+            console.log('🔍 Cleaned content:', typeof cleanContent === 'string' ? cleanContent.substring(0, 100) + '...' : 'Non-string content');
+            
+            return {
+              ...msg,
+              content: cleanContent
+            };
+          });
+
+          // Save the clean response
+          await saveCareerChatWithUser({
+            id,
+            userId: user.id,
+            messages: newResponseMessages.map(msg => ({ ...msg, step: 'apply' })),
+            currentStep: 'apply',
+            supabaseClient: adminClient,
+          });
+          
+          console.log(`✅ AI response saved successfully for apply step`);
+        } catch (error) {
+          console.error('Error saving AI response:', error);
+        }
+      },
+    });
+
+    return result.toDataStreamResponse();
   }
 
   console.log(`⚠️ Step ${currentStep} not handled by structured flow, using generic logic`);
