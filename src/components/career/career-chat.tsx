@@ -390,10 +390,10 @@ export default function CareerChat({ chatId, initialStep = 'discover', initialMe
                           {/* Show original message content only if it's not a material that we're displaying with the editable component */}
                           {(() => {
                             const content = typeof message.content === 'string' ? message.content : '';
-                            const isMaterial = content.startsWith('[RESUME]') || 
-                                             content.startsWith('[COVER_LETTER]') || 
-                                             content.startsWith('[LINKEDIN]') || 
-                                             content.startsWith('[OUTREACH]');
+                            const isMaterial = content.includes('[RESUME]') || 
+                                             content.includes('[COVER_LETTER]') || 
+                                             content.includes('[LINKEDIN]') || 
+                                             content.includes('[OUTREACH]');
                             
                             // Don't show the original content if it's a material (we'll show it in the editable component)
                             if (isMaterial) {
@@ -414,13 +414,13 @@ export default function CareerChat({ chatId, initialStep = 'discover', initialMe
                               
                               // Detect material type using the same identifiers as the API
                               let materialType: 'resume' | 'cover_letter' | 'linkedin' | 'outreach' | null = null;
-                              if (content.startsWith('[RESUME]')) {
+                              if (content.includes('[RESUME]')) {
                                 materialType = 'resume';
-                              } else if (content.startsWith('[COVER_LETTER]')) {
+                              } else if (content.includes('[COVER_LETTER]')) {
                                 materialType = 'cover_letter';
-                              } else if (content.startsWith('[LINKEDIN]')) {
+                              } else if (content.includes('[LINKEDIN]')) {
                                 materialType = 'linkedin';
-                              } else if (content.startsWith('[OUTREACH]')) {
+                              } else if (content.includes('[OUTREACH]')) {
                                 materialType = 'outreach';
                               }
                               

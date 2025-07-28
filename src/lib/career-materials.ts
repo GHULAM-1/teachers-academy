@@ -15,6 +15,10 @@ export async function saveCareerMaterialToProfile(
   content: string,
   title: string
 ): Promise<void> {
+  console.log(`💾 Attempting to save ${materialType} to profile for user ${userId}`);
+  console.log(`📝 Content length: ${content.length}`);
+  console.log(`📝 Content preview: ${content.substring(0, 100)}...`);
+  
   const adminClient = createAdminSupabaseClient();
   
   const file_name = `${materialType}_${new Date().toISOString().split('T')[0]}.txt`;
@@ -28,15 +32,19 @@ export async function saveCareerMaterialToProfile(
     updated_at: new Date().toISOString()
   };
 
+  console.log(`📊 Update data:`, updateData);
+
   const { error } = await adminClient
     .from('profiles')
     .update(updateData)
     .eq('id', userId);
 
   if (error) {
-    console.error(`Error saving ${materialType} to profile:`, error);
+    console.error(`❌ Error saving ${materialType} to profile:`, error);
     throw new Error(`Failed to save ${materialType} to profile`);
   }
+  
+  console.log(`✅ Successfully saved ${materialType} to profile`);
 }
 
 export async function getCareerMaterialFromProfile(

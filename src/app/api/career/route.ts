@@ -651,13 +651,14 @@ async function detectAndSaveMaterials(
     console.log('🔍 Checking for materials in content:', content.substring(0, 100) + '...');
     const lowerContent = content.toLowerCase();
     
-        // Detect resume content - look for [RESUME] identifier
+        // Detect resume content - look for [RESUME] or **[RESUME]** identifier
     console.log('🔍 Checking for resume content...');
-    if (content.startsWith('[RESUME]')) {
+    if (content.includes('[RESUME]')) {
       console.log('📄 Resume content detected!');
       
-      // Remove the [RESUME] identifier and save the content
-      const resumeContent = content.substring(8).trim(); // Remove "[RESUME]" (8 characters)
+      // Find the start of the resume content
+      const resumeIndex = content.indexOf('[RESUME]');
+      const resumeContent = content.substring(resumeIndex + 8).trim(); // Remove "[RESUME]" (8 characters)
       
       await saveCareerMaterialToProfile(
         userId,
@@ -670,11 +671,12 @@ async function detectAndSaveMaterials(
     
     // Detect cover letter content - look for [COVER_LETTER] identifier
     console.log('🔍 Checking for cover letter content...');
-    if (content.startsWith('[COVER_LETTER]')) {
+    if (content.includes('[COVER_LETTER]')) {
       console.log('📝 Cover letter content detected!');
       
-      // Remove the [COVER_LETTER] identifier and save the content
-      const letterContent = content.substring(14).trim(); // Remove "[COVER_LETTER]" (14 characters)
+      // Find the start of the cover letter content
+      const letterIndex = content.indexOf('[COVER_LETTER]');
+      const letterContent = content.substring(letterIndex + 14).trim(); // Remove "[COVER_LETTER]" (14 characters)
       
       await saveCareerMaterialToProfile(
         userId,
@@ -687,11 +689,12 @@ async function detectAndSaveMaterials(
     
     // Detect LinkedIn content - look for [LINKEDIN] identifier
     console.log('🔍 Checking for LinkedIn content...');
-    if (content.startsWith('[LINKEDIN]')) {
+    if (content.includes('[LINKEDIN]')) {
       console.log('💼 LinkedIn content detected!');
       
-      // Remove the [LINKEDIN] identifier and save the content
-      const linkedinContent = content.substring(10).trim(); // Remove "[LINKEDIN]" (10 characters)
+      // Find the start of the LinkedIn content
+      const linkedinIndex = content.indexOf('[LINKEDIN]');
+      const linkedinContent = content.substring(linkedinIndex + 10).trim(); // Remove "[LINKEDIN]" (10 characters)
       
       await saveCareerMaterialToProfile(
         userId,
@@ -704,11 +707,12 @@ async function detectAndSaveMaterials(
     
     // Detect outreach content - look for [OUTREACH] identifier
     console.log('🔍 Checking for outreach content...');
-    if (content.startsWith('[OUTREACH]')) {
+    if (content.includes('[OUTREACH]')) {
       console.log('📧 Outreach content detected!');
       
-      // Remove the [OUTREACH] identifier and save the content
-      const outreachContent = content.substring(10).trim(); // Remove "[OUTREACH]" (10 characters)
+      // Find the start of the outreach content
+      const outreachIndex = content.indexOf('[OUTREACH]');
+      const outreachContent = content.substring(outreachIndex + 10).trim(); // Remove "[OUTREACH]" (10 characters)
       
       await saveCareerMaterialToProfile(
         userId,
@@ -1360,6 +1364,13 @@ Why Exploring: ${profile?.exploring_opportunities || 'Not specified'}
           // Detect and save career materials
           for (const msg of newResponseMessages) {
             if (msg.content && typeof msg.content === 'string') {
+              console.log('🔍 Checking message for materials:', {
+                content: msg.content.substring(0, 200) + '...',
+                startsWithResume: msg.content.startsWith('[RESUME]'),
+                startsWithCoverLetter: msg.content.startsWith('[COVER_LETTER]'),
+                startsWithLinkedIn: msg.content.startsWith('[LINKEDIN]'),
+                startsWithOutreach: msg.content.startsWith('[OUTREACH]')
+              });
               await detectAndSaveMaterials(msg.content, user.id, currentStep);
             }
           }
