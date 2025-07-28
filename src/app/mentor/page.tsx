@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { createServerSupabaseClient, createAdminSupabaseClient } from '@/lib/supabase';
+import { createServerSupabaseClient } from '@/lib/supabase';
 import { cookies } from 'next/headers';
 import { generateId } from 'ai';
 
@@ -18,11 +18,10 @@ export default async function MentorPage() {
     return;
   }
 
-  // Create new chat with admin client (bypasses RLS)
+  // Create new chat with regular client (uses RLS policies)
   const id = generateId();
-  const adminClient = createAdminSupabaseClient();
   
-  const { data, error } = await adminClient
+  const { data, error } = await supabase
     .from('chats')
     .insert({
       id,
