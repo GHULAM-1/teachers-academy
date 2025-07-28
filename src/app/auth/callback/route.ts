@@ -1,6 +1,5 @@
-import { createServerSupabaseClient } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase';
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
@@ -8,13 +7,22 @@ export async function GET(request: NextRequest) {
   const next = searchParams.get('next') ?? '/mentor';
 
   if (code) {
-    const cookieStore = await cookies();
-    const supabase = createServerSupabaseClient(cookieStore);
-    
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    
-    if (!error) {
-      return NextResponse.redirect(`${origin}${next}`);
+    try {
+      const supabase = createClient();
+      
+      const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+      
+      if (error) {
+        console.error('Code exchange error:', error);
+        return NextResponse.redirect(`${origin}/auth?error=${encodeURIComponent(error.message)}`);
+      }
+
+      if (data.session) {
+        return NextResponse.redirect(`${origin}${next}`);
+      }
+    } catch (error) {
+      console.error('Callback error:', error);
+      return NextResponse.redirect(`${origin}/auth?error=Authentication failed`);
     }
   }
 
