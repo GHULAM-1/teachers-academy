@@ -28,6 +28,7 @@ export interface FeatureCard {
   buttonHref?: string;
   onClick?: () => void;
   badge?: string;
+  disabled?: boolean;
 }
 
 const defaultCards: FeatureCard[] = [
@@ -100,7 +101,10 @@ export default function FeatureCards({
           <Card
             key={card.id}
             className={cn(
-              "group hover:shadow-lg transition-all duration-300 relative border-[#02133B]/20"
+              "group transition-all duration-300 relative border-[#02133B]/20",
+              card.disabled 
+                ? "opacity-50 cursor-not-allowed" 
+                : "hover:shadow-lg"
             )}
           >
             <CardHeader className="pb-4">
@@ -126,10 +130,13 @@ export default function FeatureCards({
             <CardContent>
               <button
                 className={cn(
-                  "transition-all duration-300 hover:cursor-pointer  rounded-[12px]",
-                  "bg-[#E4EDFF] hover:bg-[#E4EDFF] text-[#02133B] font-semibold"
+                  "transition-all duration-300 rounded-[12px]",
+                  card.disabled
+                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    : "bg-[#E4EDFF] hover:bg-[#E4EDFF] text-[#02133B] font-semibold hover:cursor-pointer"
                 )}
-                onClick={() => handleCardClick(card)}
+                onClick={() => !card.disabled && handleCardClick(card)}
+                disabled={card.disabled}
               >
                 <div className="flex items-center justify-center px-[16px] py-[12px]">
                   {card.buttonText}

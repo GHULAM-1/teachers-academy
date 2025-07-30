@@ -107,6 +107,19 @@ export function useCareerChatSaveDialog(chatId: string | undefined, shouldShowDi
     }
   }, [chatId]);
 
+  const handleContinueChat = useCallback(() => {
+    console.log('🔄 User chose to continue chat');
+    
+    // Clear refresh block flag
+    if (typeof window !== 'undefined') {
+      window.isRefreshBlocked = false;
+    }
+    
+    // Just hide the dialog and do nothing else
+    setShowSaveDialog(false);
+    hasShownDialogRef.current = true;
+  }, []);
+
   // Trigger save dialog when user attempts to leave
   const triggerSaveDialog = useCallback((intendedUrl?: string) => {
     if (!chatId || !shouldShowDialog || hasShownDialogRef.current || isLeavingRef.current) {
@@ -209,6 +222,7 @@ export function useCareerChatSaveDialog(chatId: string | undefined, shouldShowDi
     showSaveDialog,
     setShowSaveDialog,
     handleSaveChoice,
+    handleContinueChat,
     triggerSaveDialog
   };
 } 

@@ -4,10 +4,11 @@ interface SaveChatDialogProps {
   isOpen: boolean;
   onSave: () => void;
   onDiscard: () => void;
+  onContinue?: () => void;
   chatId?: string;
 }
 
-export default function SaveChatDialog({ isOpen, onSave, onDiscard, chatId }: SaveChatDialogProps) {
+export default function SaveChatDialog({ isOpen, onSave, onDiscard, onContinue, chatId }: SaveChatDialogProps) {
   if (!isOpen) return null;
 
   return (
@@ -32,20 +33,31 @@ export default function SaveChatDialog({ isOpen, onSave, onDiscard, chatId }: Sa
             </p>
           </div>
           
-          <div className="flex gap-3 justify-center">
-            <Button
-              variant="outline"
-              onClick={onDiscard}
-              className="px-6"
-            >
-              Delete Chat
-            </Button>
-            <Button
-              onClick={onSave}
-              className="px-6 bg-[#02133B] hover:bg-[#02133B]/90"
-            >
-              Save Chat
-            </Button>
+          <div className="flex flex-col gap-3 justify-center">
+            <div className="flex gap-3 justify-center">
+              <Button
+                variant="outline"
+                onClick={onDiscard}
+                className="px-6"
+              >
+                Delete Chat
+              </Button>
+              <Button
+                onClick={onSave}
+                className="px-6 bg-[#02133B] hover:bg-[#02133B]/90"
+              >
+                Save Chat
+              </Button>
+            </div>
+            {onContinue && (
+              <Button
+                variant="ghost"
+                onClick={onContinue}
+                className="px-6 text-gray-600 hover:text-gray-800"
+              >
+                Continue Chat
+              </Button>
+            )}
           </div>
         </div>
       </div>

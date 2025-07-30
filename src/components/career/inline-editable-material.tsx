@@ -43,6 +43,7 @@ export default function InlineEditableMaterial({
   const [editedContent, setEditedContent] = useState(getContentWithoutIdentifier(content, materialType));
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingToProfile, setIsSavingToProfile] = useState(false);
   const [downloadLoading, setDownloadLoading] = useState<string | null>(null);
 
   const handleEdit = () => {
@@ -73,6 +74,21 @@ export default function InlineEditableMaterial({
     setEditedContent(getContentWithoutIdentifier(content, materialType)); // Reset to original content without identifier
     setIsEditing(false);
     onCancel();
+  };
+
+  const handleSaveToProfile = async () => {
+    if (!user) return;
+    
+    try {
+      setIsSavingToProfile(true);
+      const contentWithoutIdentifier = getContentWithoutIdentifier(content, materialType);
+      await saveCareerMaterialToProfileClient(user.id, materialType, contentWithoutIdentifier, title);
+      console.log('Material saved to profile successfully');
+    } catch (error) {
+      console.error('Error saving material to profile:', error);
+    } finally {
+      setIsSavingToProfile(false);
+    }
   };
 
   const handleDownload = async (fileType: 'txt' | 'pdf' | 'docx' = 'txt') => {
@@ -151,6 +167,20 @@ export default function InlineEditableMaterial({
           >
             <Edit className="h-3 w-3 mr-1" />
             Edit
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleSaveToProfile}
+            disabled={isSavingToProfile}
+            className="h-7 px-2"
+          >
+            {isSavingToProfile ? (
+              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+            ) : (
+              <Save className="h-3 w-3 mr-1" />
+            )}
+            Save to Profile
           </Button>
         </div>
       </div>

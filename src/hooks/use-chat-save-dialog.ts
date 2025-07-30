@@ -71,6 +71,14 @@ export function useChatSaveDialog(chatId: string | undefined, hasMeaningfulMessa
     }, 200);
   }, [chatId]);
 
+  const handleContinueChat = useCallback(() => {
+    console.log('🔄 User chose to continue chat');
+    
+    // Just hide the dialog and do nothing else
+    setShowSaveDialog(false);
+    hasShownDialogRef.current = true;
+  }, []);
+
   // Trigger save dialog when user attempts to leave
   const triggerSaveDialog = useCallback((intendedUrl?: string) => {    
     if (!chatId || !hasMeaningfulMessages || hasShownDialogRef.current || isLeavingRef.current) {
@@ -119,6 +127,7 @@ export function useChatSaveDialog(chatId: string | undefined, hasMeaningfulMessa
     showSaveDialog,
     setShowSaveDialog,
     handleSaveChoice,
+    handleContinueChat,
     triggerSaveDialog
   };
 } 

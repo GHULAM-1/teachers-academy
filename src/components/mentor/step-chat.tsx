@@ -31,6 +31,7 @@ export default function StepChat({ onComplete, showHero, chatId, initialMessages
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showLoader, setShowLoader] = useState(false);
   const [hasCompleted, setHasCompleted] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
   const hasStartedRef = useRef(false);
 
   console.log('🔄 StepChat component rendered:', { 
@@ -82,7 +83,17 @@ export default function StepChat({ onComplete, showHero, chatId, initialMessages
     if (onMessagesUpdate) {
       onMessagesUpdate(messages);
     }
-  }, [messages, onMessagesUpdate]);
+    
+    // Check if streaming has started
+    if (isLoading && messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage.role === 'assistant' && lastMessage.content && lastMessage.content.length > 0) {
+        setIsStreaming(true);
+      }
+    } else if (!isLoading) {
+      setIsStreaming(false);
+    }
+  }, [messages, onMessagesUpdate, isLoading]);
 
   // Force set initial messages when they are provided (for existing chats)
   useEffect(() => {
@@ -295,6 +306,20 @@ export default function StepChat({ onComplete, showHero, chatId, initialMessages
           {error && (
             <div className="mx-4 p-3 bg-red-100 border border-red-300 rounded text-red-700 text-sm">
               ⚠️ Error: {error.message || 'Something went wrong with the AI response'}
+            </div>
+          )}
+          
+          {/* Show "..." when AI is not streaming */}
+          {isLoading && !isStreaming && (
+            <div className="flex items-center gap-2">
+              <Image src="/logo1.png" alt="AI Avatar" width={24} height={24} />
+              <span className="text-base text-black font-normal bg-transparent">
+                <div className="flex space-x-1">
+                  <div className="w-1 mt-1 h-1 bg-black rounded-full animate-bounce"></div>
+                  <div className="w-1 mt-1 h-1 bg-black rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                  <div className="w-1 mt-1 h-1 bg-black rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                </div>
+              </span>
             </div>
           )}
           

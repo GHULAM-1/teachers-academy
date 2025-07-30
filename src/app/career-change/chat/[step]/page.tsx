@@ -6,7 +6,7 @@ import { generateId } from 'ai';
 import CareerChat from "@/components/career/career-chat";
 import ApplyDashboard from "@/components/career/apply-dashboard";
 
-const VALID_STEPS = ['discover', 'commit', 'create', 'apply'];
+const VALID_STEPS = ['discover', 'commit', 'create', 'apply']; // Include commit but handle it specially
 
 /**
  * Career chat page that loads messages server-side like AI mentor

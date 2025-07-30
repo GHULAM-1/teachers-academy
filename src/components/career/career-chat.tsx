@@ -30,7 +30,6 @@ interface CareerChatProps {
 
 const STEPS = [
   { id: 'discover', name: 'Discover', description: 'Explore potential career paths' },
-  { id: 'commit', name: 'Commit', description: 'Commit with confidence to your selected career path' },
   { id: 'create', name: 'Create Materials', description: 'Build professional materials' },
   { id: 'apply', name: 'Apply', description: 'Apply to jobs and opportunities' }
 ];
@@ -40,17 +39,21 @@ export default function CareerChat({ chatId, initialStep = 'discover', initialMe
   const [currentStep, setCurrentStep] = useState(initialStep);
   const [loadingStep, setLoadingStep] = useState(false);
   const [currentMessages, setCurrentMessages] = useState<CareerMessage[]>([]);
+  const [isStreaming, setIsStreaming] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const currentStepIndex = STEPS.findIndex(step => step.id === currentStep);
-  const currentStepInfo = STEPS[currentStepIndex];
+  const currentStepInfo = STEPS[currentStepIndex] || STEPS[0]; // Fallback to first step if not found
+
+  // Handle commit step - show discover UI
+  const displayStepInfo = currentStep === 'commit' ? STEPS[0] : currentStepInfo;
 
   // Determine if chat has been started
   const hasChatStarted = currentMessages.length > 0;
   const shouldShowSaveDialog = hasChatStarted && !!chatId;
 
   // Use career chat save dialog hook
-  const { showSaveDialog, handleSaveChoice, triggerSaveDialog } = useCareerChatSaveDialog(
+  const { showSaveDialog, handleSaveChoice, handleContinueChat, triggerSaveDialog } = useCareerChatSaveDialog(
     chatId,
     shouldShowSaveDialog
   );
@@ -172,6 +175,18 @@ export default function CareerChat({ chatId, initialStep = 'discover', initialMe
     }
   }, [currentStep, chatId, router]);
 
+  // Handle streaming state
+  useEffect(() => {
+    if (messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage.role === 'assistant' && lastMessage.content) {
+        setIsStreaming(true);
+      } else {
+        setIsStreaming(false);
+      }
+    }
+  }, [messages]);
+
   // Listen for custom save dialog events from sidebar
   useEffect(() => {
     const handleShowSaveDialog = (event: CustomEvent) => {
@@ -230,7 +245,17 @@ export default function CareerChat({ chatId, initialStep = 'discover', initialMe
   // Update current messages when chat messages change
   useEffect(() => {
     handleMessagesUpdate(messages);
-  }, [messages, handleMessagesUpdate]);
+    
+    // Check if streaming has started
+    if (isLoading && messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage.role === 'assistant' && lastMessage.content && lastMessage.content.length > 0) {
+        setIsStreaming(true);
+      }
+    } else if (!isLoading) {
+      setIsStreaming(false);
+    }
+  }, [messages, handleMessagesUpdate, isLoading]);
 
   // Step transitions are now handled automatically by the AI
   // No manual navigation needed
@@ -250,6 +275,8 @@ export default function CareerChat({ chatId, initialStep = 'discover', initialMe
 
 
 
+
+
   return (
     <div className="max-w-4xl mx-auto p-6">
       {/* Progress Bar */}
@@ -262,36 +289,41 @@ export default function CareerChat({ chatId, initialStep = 'discover', initialMe
         </div>
         
         <div className="flex items-center space-x-4 mb-4">
-          {STEPS.map((step, index) => (
-            <div key={step.id} className="flex items-center flex-1">
-              <div
-                className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all ${
-                  index <= currentStepIndex
-                    ? 'bg-[#02133B] text-white border-[#02133B]'
-                    : 'bg-white text-[#02133B]/50 border-[#02133B]/20'
-                }`}
-              >
-                {index + 1}
-              </div>
-              <div className="ml-3 flex-1">
-                <div className={`text-sm font-medium ${
-                  index <= currentStepIndex ? 'text-[#02133B]' : 'text-[#02133B]/50'
-                }`}>
-                  {step.name}
+          {STEPS.map((step, index) => {
+            // Determine if this step should be active
+            const isActive = index <= currentStepIndex || (currentStep === 'commit' && step.id === 'discover');
+            
+            return (
+              <div key={step.id} className="flex items-center flex-1">
+                <div
+                  className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all ${
+                    isActive
+                      ? 'bg-[#02133B] text-white border-[#02133B]'
+                      : 'bg-white text-[#02133B]/50 border-[#02133B]/20'
+                  }`}
+                >
+                  {index + 1}
                 </div>
-                <div className={`text-xs ${
-                  index <= currentStepIndex ? 'text-[#02133B]/70' : 'text-[#02133B]/40'
-                }`}>
-                  {step.description}
+                <div className="ml-3 flex-1">
+                  <div className={`text-sm font-medium ${
+                    isActive ? 'text-[#02133B]' : 'text-[#02133B]/50'
+                  }`}>
+                    {step.name}
+                  </div>
+                  <div className={`text-xs ${
+                    isActive ? 'text-[#02133B]/70' : 'text-[#02133B]/40'
+                  }`}>
+                    {step.description}
+                  </div>
                 </div>
+                {index < STEPS.length - 1 && (
+                  <div className={`w-8 h-0.5 ml-4 ${
+                    isActive ? 'bg-[#02133B]' : 'bg-[#02133B]/20'
+                  }`} />
+                )}
               </div>
-              {index < STEPS.length - 1 && (
-                <div className={`w-8 h-0.5 ml-4 ${
-                  index < currentStepIndex ? 'bg-[#02133B]' : 'bg-[#02133B]/20'
-                }`} />
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -309,10 +341,10 @@ export default function CareerChat({ chatId, initialStep = 'discover', initialMe
 
         <div className="text-center">
           <h2 className="text-xl font-semibold text-[#02133B]">
-            {currentStepInfo.name}
+            {displayStepInfo.name}
           </h2>
           <p className="text-sm text-[#02133B]/70">
-            {currentStepInfo.description}
+            {displayStepInfo.description}
           </p>
         </div>
 
@@ -339,10 +371,10 @@ export default function CareerChat({ chatId, initialStep = 'discover', initialMe
             ) : messages.filter(msg => !(msg.role === 'user' && 
               (msg.content === 'start' || 
                msg.content === 'begin' || 
-               msg.content?.trim() === ''))).length === 0 ? (
+               msg.content?.trim() === ''))).length === 0 && !isLoading ? (
               <div className="flex flex-col items-center justify-center h-full text-center">
                 <div className="text-[#02133B]/50 mb-4">
-                  Welcome to the {currentStepInfo.name} step!
+                  Welcome to the {displayStepInfo.name} step!
                 </div>
                 <div className="text-sm text-[#02133B]/40 mb-6">
                   {currentStep === 'discover' 
@@ -360,7 +392,7 @@ export default function CareerChat({ chatId, initialStep = 'discover', initialMe
                   }}
                   className="bg-[#02133B] text-white"
                 >
-                  {currentStep === 'discover' ? 'Begin Discovery' : `Start ${currentStepInfo.name} Step`}
+                  {currentStep === 'discover' ? 'Begin Discovery' : `Start ${displayStepInfo.name} Step`}
                 </Button>
               </div>
             ) : (
@@ -399,6 +431,8 @@ export default function CareerChat({ chatId, initialStep = 'discover', initialMe
                             if (isMaterial) {
                               return null;
                             }
+
+
                             
                             return (
                               <div className="text-base text-[#02133B] font-normal bg-transparent whitespace-pre-wrap">
@@ -486,6 +520,23 @@ export default function CareerChat({ chatId, initialStep = 'discover', initialMe
                 );
               })
             )}
+            
+            {/* Show "..." when AI is not streaming */}
+            {isLoading && !isStreaming && (
+              <div className="flex items-center gap-2 max-w-[80%]">
+                <Image src="/logo1.png" alt="AI Avatar" width={24} height={24} className="mt-1 flex-shrink-0"/>
+                <div className="flex flex-col gap-2">
+                  <div className="text-base text-[#02133B] font-normal bg-transparent">
+                    <div className="flex space-x-1">
+                      <div className="w-1 mt-1 h-1 bg-[#02133B] rounded-full animate-bounce"></div>
+                      <div className="w-1 mt-1 h-1 bg-[#02133B] rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                      <div className="w-1 mt-1 h-1 bg-[#02133B] rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <div ref={messagesEndRef} />
           </div>
 
@@ -504,7 +555,7 @@ export default function CareerChat({ chatId, initialStep = 'discover', initialMe
                 }}
                 placeholder={currentStep === 'discover' 
                   ? "Share your thoughts or ask for clarification..." 
-                  : `Ask about ${currentStepInfo.name.toLowerCase()}...`
+                  : `Ask about ${displayStepInfo.name.toLowerCase()}...`
                 }
                 className="resize-none min-h-[40px] border-0 focus:outline-none shadow-none flex-1 text-base"
                 maxLength={500}
@@ -535,6 +586,7 @@ export default function CareerChat({ chatId, initialStep = 'discover', initialMe
         isOpen={showSaveDialog}
         onSave={() => handleSaveChoice(true)}
         onDiscard={() => handleSaveChoice(false)}
+        onContinue={handleContinueChat}
         chatId={chatId}
       />
     </div>

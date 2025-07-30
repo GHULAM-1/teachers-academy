@@ -167,21 +167,7 @@ Dear Hiring Manager,
 
 Keep responses conversational during the Q&A phase, but when generating final materials, be completely silent except for the identifier + content.
 
-**STAGE 4: TRANSITION TO APPLY STEP**
-After generating any material (resume, cover letter, LinkedIn, outreach), ask the user:
-"Great! You now have your [material type] ready. What would you like to do next?"
-
-Offer these options:
-1. **🚀 Move to Apply Step** - "I'm ready to start applying to jobs"
-2. **📝 Generate More Materials** - "I'd like to create another material first"
-3. **✏️ Edit This Material** - "I want to refine what we just created"
-
-If user chooses "Move to Apply Step", transition to the apply step by saying:
-"Perfect! Let's move to the Apply step where we'll help you find and apply to relevant job opportunities for your [career path]."
-
-If user chooses "Generate More Materials", return to the material selection menu.
-
-If user chooses "Edit This Material", help them refine the current material.`,
+**IMPORTANT: After generating materials, Ask user to move to apply step. Do not automatically suggest moving to the apply step. Simply ask "What would you like to do next?" and let them choose.`,
 
   'apply': `You are helping the user actively apply to jobs and opportunities in their chosen career path. Your role is to guide them through the job search and application process.
 
@@ -295,6 +281,13 @@ Now let's prepare your application materials for your [career name] career trans
 🔍 **Explore All Options** - Get an overview of all tools and their benefits
 
 Which would you like to begin with?"
+
+SPECIAL HANDLING FOR "CAN YOU TELL ME":
+If the user asks "can you tell me" or similar questions about career suggestions:
+- Based on their teaching background, skills, and the conversation so far, suggest the BEST career path for them
+- Explain why this career is a perfect fit for their background and goals
+- Be enthusiastic and confident in your recommendation
+- Say something like: "Based on your teaching background and what we've discussed, I believe [Career Name] would be an excellent fit for you. Here's why: [specific reasons]. Would you like to commit to exploring this path?"
 
 IMPORTANT: After the user confirms their career choice, generate a single, specific job search term that best represents their chosen career path. This should be:
 - One specific job title or role (1-3 words max)
@@ -651,77 +644,78 @@ async function detectAndSaveMaterials(
     console.log('🔍 Checking for materials in content:', content.substring(0, 100) + '...');
     const lowerContent = content.toLowerCase();
     
-        // Detect resume content - look for [RESUME] or **[RESUME]** identifier
-    console.log('🔍 Checking for resume content...');
-    if (content.includes('[RESUME]')) {
-      console.log('📄 Resume content detected!');
-      
-      // Find the start of the resume content
-      const resumeIndex = content.indexOf('[RESUME]');
-      const resumeContent = content.substring(resumeIndex + 8).trim(); // Remove "[RESUME]" (8 characters)
-      
-      await saveCareerMaterialToProfile(
-        userId,
-        'resume',
-        resumeContent,
-        'Professional Resume'
-      );
-      console.log('✅ Resume saved to profile');
-    }
+    // DISABLED: Automatic material saving - users now manually save using buttons
+    // Detect resume content - look for [RESUME] or **[RESUME]** identifier
+    // console.log('🔍 Checking for resume content...');
+    // if (content.includes('[RESUME]')) {
+    //   console.log('📄 Resume content detected!');
+    //   
+    //   // Find the start of the resume content
+    //   const resumeIndex = content.indexOf('[RESUME]');
+    //   const resumeContent = content.substring(resumeIndex + 8).trim(); // Remove "[RESUME]" (8 characters)
+    //   
+    //   await saveCareerMaterialToProfile(
+    //     userId,
+    //     'resume',
+    //     resumeContent,
+    //     'Professional Resume'
+    //   );
+    //   console.log('✅ Resume saved to profile');
+    // }
     
     // Detect cover letter content - look for [COVER_LETTER] identifier
-    console.log('🔍 Checking for cover letter content...');
-    if (content.includes('[COVER_LETTER]')) {
-      console.log('📝 Cover letter content detected!');
-      
-      // Find the start of the cover letter content
-      const letterIndex = content.indexOf('[COVER_LETTER]');
-      const letterContent = content.substring(letterIndex + 14).trim(); // Remove "[COVER_LETTER]" (14 characters)
-      
-      await saveCareerMaterialToProfile(
-        userId,
-        'cover_letter',
-        letterContent,
-        'Cover Letter'
-      );
-      console.log('✅ Cover letter saved to profile');
-    }
+    // console.log('🔍 Checking for cover letter content...');
+    // if (content.includes('[COVER_LETTER]')) {
+    //   console.log('📝 Cover letter content detected!');
+    //   
+    //   // Find the start of the cover letter content
+    //   const letterIndex = content.indexOf('[COVER_LETTER]');
+    //   const letterContent = content.substring(letterIndex + 14).trim(); // Remove "[COVER_LETTER]" (14 characters)
+    //   
+    //   await saveCareerMaterialToProfile(
+    //     userId,
+    //     'cover_letter',
+    //     letterContent,
+    //     'Cover Letter'
+    //   );
+    //   console.log('✅ Cover letter saved to profile');
+    // }
     
     // Detect LinkedIn content - look for [LINKEDIN] identifier
-    console.log('🔍 Checking for LinkedIn content...');
-    if (content.includes('[LINKEDIN]')) {
-      console.log('💼 LinkedIn content detected!');
-      
-      // Find the start of the LinkedIn content
-      const linkedinIndex = content.indexOf('[LINKEDIN]');
-      const linkedinContent = content.substring(linkedinIndex + 10).trim(); // Remove "[LINKEDIN]" (10 characters)
-      
-      await saveCareerMaterialToProfile(
-        userId,
-        'linkedin',
-        linkedinContent,
-        'LinkedIn Profile Content'
-      );
-      console.log('✅ LinkedIn content saved to profile');
-    }
+    // console.log('🔍 Checking for LinkedIn content...');
+    // if (content.includes('[LINKEDIN]')) {
+    //   console.log('💼 LinkedIn content detected!');
+    //   
+    //   // Find the start of the LinkedIn content
+    //   const linkedinIndex = content.indexOf('[LINKEDIN]');
+    //   const linkedinContent = content.substring(linkedinIndex + 10).trim(); // Remove "[LINKEDIN]" (10 characters)
+    //   
+    //   await saveCareerMaterialToProfile(
+    //     userId,
+    //     'linkedin',
+    //     linkedinContent,
+    //     'LinkedIn Profile Content'
+    //   );
+    //   console.log('✅ LinkedIn content saved to profile');
+    // }
     
     // Detect outreach content - look for [OUTREACH] identifier
-    console.log('🔍 Checking for outreach content...');
-    if (content.includes('[OUTREACH]')) {
-      console.log('📧 Outreach content detected!');
-      
-      // Find the start of the outreach content
-      const outreachIndex = content.indexOf('[OUTREACH]');
-      const outreachContent = content.substring(outreachIndex + 10).trim(); // Remove "[OUTREACH]" (10 characters)
-      
-      await saveCareerMaterialToProfile(
-        userId,
-        'outreach',
-        outreachContent,
-        'Outreach Messages'
-      );
-      console.log('✅ Outreach content saved to profile');
-    }
+    // console.log('🔍 Checking for outreach content...');
+    // if (content.includes('[OUTREACH]')) {
+    //   console.log('📧 Outreach content detected!');
+    //   
+    //   // Find the start of the outreach content
+    //   const outreachIndex = content.indexOf('[OUTREACH]');
+    //   const outreachContent = content.substring(outreachIndex + 10).trim(); // Remove "[OUTREACH]" (10 characters)
+    //   
+    //   await saveCareerMaterialToProfile(
+    //     userId,
+    //     'outreach',
+    //     outreachContent,
+    //     'Outreach Messages'
+    //   );
+    //   console.log('✅ Outreach content saved to profile');
+    // }
   } catch (error) {
     console.error('Error saving career material:', error);
   }
@@ -986,8 +980,16 @@ async function handleDiscoverFlow(messages: any[], chatId: string, userId: strin
 
   // Handle different phases of discovery
   if (currentQuestionIndex === 0) {
-    // First interaction - ask first question directly
-    const responseContent = DISCOVERY_QUESTIONS[0];
+    // First interaction - show welcome message and first question
+    const welcomeMessage = `Welcome to your career discovery journey! I'm here to help you explore new career paths that leverage your teaching experience and skills.
+
+I'll ask you 8 questions to understand your preferences, strengths, and goals. This will help me match you with the best career opportunities.
+
+Let's start with the first question:`;
+    
+    const responseContent = `${welcomeMessage}
+
+${DISCOVERY_QUESTIONS[0]}`;
     
     return createDirectResponse(responseContent, messages, chatId, userId, supabaseClient);
     
@@ -998,7 +1000,7 @@ async function handleDiscoverFlow(messages: any[], chatId: string, userId: strin
     return createDirectResponse(responseContent, messages, chatId, userId, supabaseClient);
     
   } else if (currentQuestionIndex === DISCOVERY_QUESTIONS.length) {
-    // All questions answered - show job matches
+    // All questions answered - show job matches as cards
     console.log(`🎯 Job Matching Debug:`, {
       answers,
       userMessagesContent: userMessages.map(m => m.content)
@@ -1011,7 +1013,7 @@ async function handleDiscoverFlow(messages: any[], chatId: string, userId: strin
       matches: jobMatches.map(m => ({ job: m.job.title, score: m.score, fitLevel: m.fitLevel }))
     });
     
-    // Create serializable job matches (remove React components)
+    // Create serializable job matches for the UI
     const serializableJobMatches = jobMatches.map(match => ({
       job: {
         id: match.job.id,
@@ -1027,50 +1029,99 @@ async function handleDiscoverFlow(messages: any[], chatId: string, userId: strin
       reasons: match.reasons
     }));
     
-    // Enhanced response that includes comparison suggestion
+    // Store job matches in the message for UI to access
+    // Simple approach: just show the job matches in the response text
     const responseContent = `Excellent! I've analyzed your responses and found some great career matches for you. Based on your preferences, skills, and goals, here are your top 3 career paths. Each of these roles leverages your teaching background in different ways.`;
-    
-    // Simple approach: embed job matches as plain text in the response
+
     const jobMatchesText = serializableJobMatches.map((match, index) => `
 **${index + 1}. ${match.job.title}** (${match.fitLevel} - ${match.score}% match)
 ${match.job.shortDescription}
 Salary: ${match.job.salaryRange}
 Why you're a match: ${match.reasons.join(', ')}
-`).join('\n');
-
-    const comparisonSuggestion = `
-
-Would you like to move to the next step where we'll help you commit with confidence to your selected career path? This will help you prepare mentally and emotionally for the transition.`;
+`).join('\n\n');
 
     const fullResponse = `${responseContent}
 
-${jobMatchesText}${comparisonSuggestion}`;
+${jobMatchesText}
+
+Click "Tell me more about [Job Title]" to learn details about any job.
+
+Which career path interests you most? You can ask me about any specific job by saying "Tell me more about [Job Title]" or let me know which one you'd like to explore further.`;
 
     return createDirectResponse(fullResponse, messages, chatId, userId, supabaseClient);
     
   } else {
-    // Check if user wants to move to next step FIRST (before asking more questions)
+    // Handle post-job-matching interactions
     const lastUserMessage = allUserMessages[allUserMessages.length - 1]?.content?.toLowerCase() || '';
-    const wantsToMoveToNext = lastUserMessage.includes('next step') || 
-                             lastUserMessage.includes('move to') || 
-                             lastUserMessage.includes('continue to') ||
-                             lastUserMessage.includes('commit') ||
-                             lastUserMessage.includes('proceed') ||
-                             lastUserMessage.includes('yes') ||
-                             lastUserMessage.includes('ready');
     
-    if (wantsToMoveToNext && allUserMessages.length > 0) {
-      // User wants to move to next step - just save the response with the new step
-      return createDirectResponse("Nice work picking a new direction!\n\nOn a scale of 1–10, how confident do you feel about succeeding in this new path?", messages, chatId, userId, supabaseClient, 'commit');
-    } else if (currentQuestionIndex === DISCOVERY_QUESTIONS.length + 1) {
-      // Sub-step 5: Ask which job they're most curious about (only if they didn't want to move to next step)
+    // Check if user is asking to learn more about a specific job
+    if (lastUserMessage.includes('tell me more about') || lastUserMessage.includes('learn more about')) {
+      // Extract job title from the message and provide detailed information
+      const jobTitle = lastUserMessage.match(/tell me more about (.+)/i)?.[1] || 
+                      lastUserMessage.match(/learn more about (.+)/i)?.[1];
+      
+      if (jobTitle) {
+        // Re-run job matching to get the job data
+        const jobMatches = matchJobsToAnswers(answers);
+        const jobMatch = jobMatches.find((match: any) => 
+          match.job.title.toLowerCase().includes(jobTitle.toLowerCase()) ||
+          jobTitle.toLowerCase().includes(match.job.title.toLowerCase())
+        );
+        
+        if (jobMatch) {
+          const detailedResponse = `Here's detailed information about **${jobMatch.job.title}**:
+
+📘 **What You'll Do:**
+${jobMatch.job.detailedDescription}
+
+💰 **Salary Range:**
+${jobMatch.job.salaryRange}
+
+✅ **Why You're a Great Match:**
+${jobMatch.reasons.map((reason: string) => `• ${reason}`).join('\n')}
+
+📋 **Key Skills Needed:**
+${jobMatch.job.requirements.skills.map((skill: string) => `• ${skill}`).join('\n')}
+
+🚀 **How to Get Started:**
+1. Research the role and industry
+2. Build relevant skills through courses or projects
+3. Network with professionals in the field
+4. Update your resume to highlight transferable skills
+5. Apply for entry-level positions or internships
+
+What do you think? Would you like to learn more about the other career options, or does ${jobMatch.job.title} feel like a good fit for you?`;
+          
+          return createDirectResponse(detailedResponse, messages, chatId, userId, supabaseClient);
+        }
+      }
+      
+      return createDirectResponse("I'd be happy to tell you more about any of the career paths! Which specific job would you like to learn more about?", messages, chatId, userId, supabaseClient);
+    }
+
+
+    
+    // Check if user has selected a job to explore further
+    if (lastUserMessage.includes('curious') || lastUserMessage.includes('explore') || lastUserMessage.includes('interested')) {
+      // Step 5: Ask which job they're most curious about
       const question = "Which of these career paths are you most curious to explore further?";
       return createDirectResponse(question, messages, chatId, userId, supabaseClient);
-    } else {
-      // Discovery complete - no more automatic questions
-      console.log('🎯 Discovery flow complete. User can now engage in free conversation or move to next step.');
-      return createDirectResponse("Great! Feel free to ask any questions about these career paths, or let me know when you're ready to move to the next step.", messages, chatId, userId, supabaseClient);
     }
+    
+    // Check if user has made a selection and is ready for deeper reflection
+    if (lastUserMessage.includes('reflection') || lastUserMessage.includes('deeper') || lastUserMessage.includes('commit')) {
+      // Step 6: Ask about deeper reflection
+      const reflectionQuestion = "Would you like to begin a deeper reflection on this choice? This will help you commit with confidence to your selected career path.";
+      return createDirectResponse(reflectionQuestion, messages, chatId, userId, supabaseClient);
+    }
+    
+    // Check if user wants to move to commit step
+    if (lastUserMessage.includes('yes') || lastUserMessage.includes('ready') || lastUserMessage.includes('proceed')) {
+      return createDirectResponse("Perfect! Let's help you commit with confidence to your selected career path. On a scale of 1–10, how confident do you feel about succeeding in this new path?", messages, chatId, userId, supabaseClient, 'commit');
+    }
+    
+    // Default response for ongoing conversation
+    return createDirectResponse("Feel free to ask any questions about these career paths, or let me know when you're ready to move to the next step.", messages, chatId, userId, supabaseClient);
   }
 }
 
@@ -1309,47 +1360,6 @@ Why Exploring: ${profile?.exploring_opportunities || 'Not specified'}
             };
           });
 
-          // Check if user wants to move to apply step OR if AI response indicates transition
-          const lastUserMessage = messages[messages.length - 1]?.content?.toLowerCase() || '';
-          const lastAIResponseContent = newResponseMessages[newResponseMessages.length - 1]?.content;
-          const lastAIResponse = typeof lastAIResponseContent === 'string' ? lastAIResponseContent.toLowerCase() : '';
-          
-          console.log('🔍 Transition check:', {
-            lastUserMessage: lastUserMessage.substring(0, 100),
-            lastAIResponse: lastAIResponse.substring(0, 100),
-            hasUserTransition: lastUserMessage.includes('move to apply') || 
-                              lastUserMessage.includes('apply step') || 
-                              lastUserMessage.includes('start applying') ||
-                              lastUserMessage.includes('ready to apply') ||
-                              lastUserMessage.includes('🚀 move to apply step') ||
-                              lastUserMessage.includes('im ready to start applying to jobs'),
-            hasAITransition: lastAIResponse.includes('lets move to the apply step') ||
-                            lastAIResponse.includes('move to the apply step') ||
-                            lastAIResponse.includes('apply step where we\'ll help you') ||
-                            lastAIResponse.includes('lets move to the apply step') ||
-                            lastAIResponse.includes('perfect! let\'s move to the apply step')
-          });
-          
-          const wantsToMoveToApply = lastUserMessage.includes('move to apply') || 
-                                   lastUserMessage.includes('apply step') || 
-                                   lastUserMessage.includes('start applying') ||
-                                   lastUserMessage.includes('ready to apply') ||
-                                   lastUserMessage.includes('🚀 move to apply step') ||
-                                   lastUserMessage.includes('im ready to start applying to jobs') ||
-                                   lastAIResponse.includes('lets move to the apply step') ||
-                                   lastAIResponse.includes('move to the apply step') ||
-                                   lastAIResponse.includes('apply step where we\'ll help you') ||
-                                   lastAIResponse.includes('perfect! let\'s move to the apply step') ||
-                                   lastAIResponse.includes('let\'s move to the apply step') ||
-                                   lastAIResponse.includes('move to the apply step where we\'ll help you');
-
-          if (wantsToMoveToApply) {
-            console.log(`🚀 Transitioning to apply step`);
-            // Update the current step for this response
-            currentStep = 'apply';
-            console.log(`✅ Step updated to 'apply' for this response`);
-          }
-
           // Save the clean response with the correct step
           await saveCareerChatWithUser({
             id,
@@ -1510,6 +1520,12 @@ ${previousContext}
 - Be practical, encouraging, and action-oriented
 - Keep responses conversational and supportive
 - Provide specific, actionable advice relevant to this step
+
+**IMPORTANT FOR DISCOVERY STEP:**
+- When a user asks "Tell me more about [Job Title]", provide detailed information about that specific job
+- Include what the job involves, salary range, why they're a good match, required skills, and how to get started
+- After providing detailed information, ask if they'd like to learn about other options or if this job feels like a good fit
+- Be conversational and guide them toward either exploring more options or committing to a path
 - If this is the first message in this step, acknowledge what step you're in and provide an overview`,
       
       async onFinish({ response }) {

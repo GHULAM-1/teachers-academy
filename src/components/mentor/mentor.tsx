@@ -61,7 +61,7 @@ export default function Mentor({ chatId: propChatId, initialMessages = [] }: Men
   // Always call the hook with consistent parameters
   const shouldShowSaveDialog = hasChatStarted && !isExistingChat && !!chatId;
   
-  const { showSaveDialog, handleSaveChoice, triggerSaveDialog } = useChatSaveDialog(
+  const { showSaveDialog, handleSaveChoice, handleContinueChat, triggerSaveDialog } = useChatSaveDialog(
     saveDialogChatId,  // Only for new chats with valid chatId
     shouldShowSaveDialog
   );
@@ -151,85 +151,43 @@ export default function Mentor({ chatId: propChatId, initialMessages = [] }: Men
     };
   }, [hasChatStarted, isExistingChat, chatId]);
 
-  // Analyze initial messages to determine state
+  // SOLID MESSAGE-BASED APPROACH
   useEffect(() => {
     if (initialMessages.length > 0 && !hasResumedState) {
       setHasResumedState(true);
       
-      // Use the same counting logic as step-chat
+      // Count user answers (excluding trigger messages)
       const userAnswerCount = getCurrentUserAnswerCount(initialMessages);
-      const lastMessage = initialMessages[initialMessages.length - 1];
       
-      console.log(`🔄 Mentor resuming: ${userAnswerCount}/8 user answers, last message: ${lastMessage?.role}`);
-      console.log(`📋 All initial messages:`, initialMessages.map((m, i) => `${i}: ${m.role} - "${m.content?.substring(0, 50)}..."`));
-      console.log(`📄 Last message content:`, lastMessage?.content);
-      console.log(`❓ Last message ends with ?:`, lastMessage?.content?.trim().endsWith('?'));
-      console.log(`📏 Last message length:`, lastMessage?.content?.length);
+      // Count total assistant messages
+      const assistantMessageCount = initialMessages.filter(m => m.role === 'assistant').length;
       
-      // Check if we have completed the assessment (8 questions) and got any recommendation
-      // Once 8 questions are answered AND we have a recommendation, always use Chat mode
-      const recommendationMessages = initialMessages.filter(m => 
-        m.role === 'assistant' && 
-        m.content?.includes('[CTA_BUTTON:')
-      );
+      console.log(`🔍 SOLID LOGIC: ${userAnswerCount}/8 answers, ${assistantMessageCount} assistant messages`);
       
-      const hasRecommendationMessage = recommendationMessages.length > 0;
-      
-      // Log all recommendations found
-      console.log(`🎯 Found ${recommendationMessages.length} recommendation messages:`);
-      recommendationMessages.forEach((msg, index) => {
-        console.log(`📋 Recommendation ${index + 1}:`, msg.content);
-        const ctaMatch = msg.content?.match(/\[CTA_BUTTON:([^\]]+)\]/);
-        console.log(`🔗 CTA Button ${index + 1}:`, ctaMatch ? ctaMatch[1] : 'None found');
-      });
-      
-      // Must have both: completed 8 questions AND got a recommendation
-      console.log(`🔍 User answered: ${userAnswerCount}/8, Has recommendation: ${hasRecommendationMessage}`);
-      const hasCompletedAssessment = userAnswerCount >= 8 && hasRecommendationMessage;
-      
-      console.log(`🔍 User answered: ${userAnswerCount}/8, Has recommendation: ${hasRecommendationMessage}, Completed: ${hasCompletedAssessment}`);
-      
-      if (hasCompletedAssessment) {
-        console.log(`✅ Assessment completed, showing final chat with recommendation`);
-        // Find the first recommendation message with CTA button
-        const recommendationMessage = initialMessages.find(m => 
-          m.role === 'assistant' && 
-          m.content?.includes('[CTA_BUTTON:')
-        );
+      // SIMPLE RULE: If we have 8+ answers, show Chat with full conversation. Otherwise, show StepChat.
+      if (userAnswerCount >= 8) {
+        console.log(`✅ SOLID: Showing Chat mode (assessment complete)`);
         
-        // Find the index of the first recommendation message
-        const recommendationIndex = initialMessages.findIndex(m => 
-          m.role === 'assistant' && 
-          m.content?.includes('[CTA_BUTTON:')
-        );
+        // Pass the entire conversation to Chat
+        const chatMessages = initialMessages;
         
-        // Split conversation: everything from recommendation onwards (what Chat should show)
-        const conversationFromRecommendation = recommendationIndex >= 0 
-          ? initialMessages.slice(recommendationIndex)
-          : [];
+        console.log(`📋 Chat messages: ${chatMessages.length} total messages`);
         
-        console.log(`📋 Conversation split: showing ${conversationFromRecommendation.length} messages from index ${recommendationIndex} onwards`);
-        console.log(`📋 Messages being passed to Chat:`, conversationFromRecommendation.map((m, i) => `${i}: ${m.role} - "${m.content?.substring(0, 50)}..."`));
-        
-        // User completed assessment, show final chat starting from first recommendation
-        setConversationHistory(conversationFromRecommendation);
-        setRecommendation(recommendationMessage?.content || '');
+        setConversationHistory(chatMessages);
+        setRecommendation(chatMessages[0]?.content || '');
         setShowHero(false);
         setShowChat(true);
       } else {
-        console.log(`📝 Assessment in progress (${userAnswerCount}/8), continuing with StepChat`);
+        console.log(`📝 SOLID: Showing StepChat mode (assessment in progress)`);
         
-        // Filter out ALL trigger messages (begin, start, empty) regardless of position
-        const filteredMessages = initialMessages.filter((m, index) => {
+        // Filter out trigger messages for StepChat
+        const filteredMessages = initialMessages.filter(m => {
           if (m.role === 'user' && (!m.content || m.content.trim() === '' || m.content.trim() === 'begin' || m.content.trim() === 'start')) {
             return false;
           }
           return true;
         });
         
-        console.log(`📋 Filtered ${initialMessages.length - filteredMessages.length} trigger messages for StepChat`);
-        
-        // User hasn't completed all questions, continue with StepChat
         setInitialStepChatMessages(filteredMessages);
         setShowHero(false);
         // showChat remains false, so StepChat will be shown
@@ -322,6 +280,7 @@ export default function Mentor({ chatId: propChatId, initialMessages = [] }: Men
         isOpen={showSaveDialog}
         onSave={() => handleSaveChoice(true)}
         onDiscard={() => handleSaveChoice(false)}
+        onContinue={handleContinueChat}
         chatId={chatId}
       />
     </div>

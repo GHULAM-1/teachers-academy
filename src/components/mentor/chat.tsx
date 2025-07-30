@@ -1,7 +1,7 @@
 "use client";
 
 import { useChat, Message } from "ai/react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowRight, Send } from "lucide-react";
@@ -21,6 +21,7 @@ export default function Chat({
   onMessagesUpdate,
 }: ChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [isStreaming, setIsStreaming] = useState(false);
   
   // Let Vercel AI SDK handle everything - conversation history already contains messages from 1st recommendation onwards
   const { messages, input, handleInputChange, handleSubmit, isLoading, setMessages } = useChat({
@@ -47,7 +48,17 @@ export default function Chat({
     if (onMessagesUpdate) {
       onMessagesUpdate(messages);
     }
-  }, [messages, onMessagesUpdate]);
+    
+    // Check if streaming has started
+    if (isLoading && messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage.role === 'assistant' && lastMessage.content && lastMessage.content.length > 0) {
+        setIsStreaming(true);
+      }
+    } else if (!isLoading) {
+      setIsStreaming(false);
+    }
+  }, [messages, onMessagesUpdate, isLoading]);
 
   const handleCtaClick = () => {
     // Check the recommendation text to determine which path was recommended
@@ -94,9 +105,9 @@ export default function Chat({
                 <div className="flex flex-col gap-4">
                   <div className="flex items-start gap-2">
                     <Image src="/logo1.png" alt="AI Avatar" width={24} height={24} className="mt-1"/>
-                    <span className="text-base text-[#02133B] font-normal bg-transparent">
+                    <div className="text-base text-[#02133B] font-normal bg-transparent whitespace-pre-wrap">
                       {displayContent}
-                    </span>
+                    </div>
                   </div>
                   
                   {/* Show CTA button for messages with CTA */}
@@ -116,6 +127,22 @@ export default function Chat({
             </div>
           );
         })}
+
+        {/* Show "..." when AI is not streaming */}
+        {isLoading && !isStreaming && (
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-2">
+              <Image src="/logo1.png" alt="AI Avatar" width={24} height={24} className="mt-1"/>
+              <span className="text-base text-[#02133B] font-normal bg-transparent">
+                <div className="flex space-x-1">
+                  <div className="w-1 mt-1 h-1 bg-[#02133B] rounded-full animate-bounce"></div>
+                  <div className="w-1 mt-1 h-1 bg-[#02133B] rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                  <div className="w-1 mt-1 h-1 bg-[#02133B] rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                </div>
+              </span>
+            </div>
+          </div>
+        )}
 
         <div ref={messagesEndRef} />
       </div>

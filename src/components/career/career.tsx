@@ -17,15 +17,6 @@ export default function Career() {
       buttonHref: "/career-change/chat/discover",
     },
     {
-      id: "commit",
-      title: "Commit",
-      description:
-        "Commit with confidence to your selected career path and prepare mentally for the transition.",
-      icon: Heart,
-      buttonText: "COMMIT TO PATH",
-      buttonHref: "/career-change/chat/commit",
-    },
-    {
       id: "create",
       title: "Create Materials",
       description:
@@ -33,6 +24,7 @@ export default function Career() {
       icon: FileText,
       buttonText: "CREATE MATERIALS",
       buttonHref: "/career-change/chat/create",
+      disabled: true,
     },
     {
       id: "make",
@@ -42,6 +34,7 @@ export default function Career() {
       icon: CheckCircle,
       buttonText: "GET ACTION PLAN",
       buttonHref: "/career-change/chat/make",
+      disabled: true,
     },
   ];
 
