@@ -17,9 +17,10 @@ import { useChatSaveDialog } from "@/hooks/use-chat-save-dialog";
 interface MentorProps {
   chatId?: string;
   initialMessages?: Message[];
+  stuckMode?: boolean;
 }
 
-export default function Mentor({ chatId: propChatId, initialMessages = [] }: MentorProps) {
+export default function Mentor({ chatId: propChatId, initialMessages = [], stuckMode = false }: MentorProps) {
   // ALL HOOKS MUST BE CALLED FIRST, before any conditional logic
   const [showHero, setShowHero] = useState(true);
   const [showChat, setShowChat] = useState(false);
@@ -56,10 +57,11 @@ export default function Mentor({ chatId: propChatId, initialMessages = [] }: Men
   
   // Only show save dialog for NEW chats (not existing ones being viewed)
   // AND only when we have a valid chatId
-  const saveDialogChatId = (isExistingChat || !chatId) ? undefined : chatId;
+  // AND not in stuck mode
+  const saveDialogChatId = (isExistingChat || !chatId || stuckMode) ? undefined : chatId;
   
   // Always call the hook with consistent parameters
-  const shouldShowSaveDialog = hasChatStarted && !isExistingChat && !!chatId;
+  const shouldShowSaveDialog = hasChatStarted && !isExistingChat && !!chatId && !stuckMode;
   
   const { showSaveDialog, handleSaveChoice, handleContinueChat, triggerSaveDialog } = useChatSaveDialog(
     saveDialogChatId,  // Only for new chats with valid chatId
@@ -243,7 +245,7 @@ export default function Mentor({ chatId: propChatId, initialMessages = [] }: Men
   return (
     <div className="">
       {/* Hero Section */}
-      {showHero && (
+      {showHero && !stuckMode && (
         <>
           <Hero
             icon={<MessageSquare className="w-10 h-10 text-white" />}
@@ -255,7 +257,7 @@ export default function Mentor({ chatId: propChatId, initialMessages = [] }: Men
         </>
       )}
       {/* StepChat or Loader */}
-      {!showChat && (
+      {!showChat && !stuckMode && (
         <StepChat  
           key={chatId} // Ensure consistent rendering
           onComplete={handleStepComplete} 
@@ -266,12 +268,13 @@ export default function Mentor({ chatId: propChatId, initialMessages = [] }: Men
         />
       )}
       {/* Chat */}
-      {showChat && (
+      {(showChat || stuckMode) && (
         <Chat 
-          conversationHistory={conversationHistory} 
-          recommendation={recommendation}
+          conversationHistory={stuckMode ? [] : conversationHistory} 
+          recommendation={stuckMode ? "" : recommendation}
           chatId={chatId}
           onMessagesUpdate={handleMessagesUpdate}
+          stuckMode={stuckMode}
         />
       )}
 

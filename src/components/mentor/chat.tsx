@@ -12,6 +12,7 @@ interface ChatProps {
   recommendation?: string;
   chatId?: string;
   onMessagesUpdate?: (messages: Message[]) => void;
+  stuckMode?: boolean;
 }
 
 export default function Chat({
@@ -19,16 +20,39 @@ export default function Chat({
   recommendation,
   chatId,
   onMessagesUpdate,
+  stuckMode = false,
 }: ChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   
   // Let Vercel AI SDK handle everything - conversation history already contains messages from 1st recommendation onwards
-  const { messages, input, handleInputChange, handleSubmit, isLoading, setMessages } = useChat({
-    api: "/api/chat",
+  const { messages, input, handleInputChange, handleSubmit, isLoading, setMessages, reload } = useChat({
+    api: stuckMode ? "/api/chat/stuck" : "/api/chat",
     id: chatId,
     initialMessages: [], // Don't use initialMessages here to avoid conflicts
   });
+
+  // Add initial stuck message when in stuck mode
+  useEffect(() => {
+    if (stuckMode && messages.length === 0) {
+      const initialMessage = {
+        id: "stuck-init",
+        role: "user" as const,
+        content: "I'm feeling stuck in my career transition and need help getting unstuck. I've already chosen a career path but I'm struggling with the next steps.",
+      };
+      setMessages([initialMessage]);
+    }
+  }, [stuckMode, messages.length, setMessages]);
+
+  // Trigger AI response after initial message is added
+  useEffect(() => {
+    if (stuckMode && messages.length === 1 && messages[0].role === 'user') {
+      // Use reload to trigger AI response
+      setTimeout(() => {
+        reload();
+      }, 200);
+    }
+  }, [stuckMode, messages, reload]);
 
   // Force set conversation history when it's provided (for existing chats)
   useEffect(() => {

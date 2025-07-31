@@ -6,6 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
   ArrowRight,
   ExternalLink,
   Menu,
@@ -13,6 +19,7 @@ import {
   ChevronRight,
   Eye,
   Loader2,
+  User,
 } from "lucide-react";
 import {
   getAllCareerMaterialsFromProfileClient,
@@ -44,6 +51,23 @@ export default function ApplyDashboard() {
   const [jobSearchTerms, setJobSearchTerms] = useState<string | null>(null);
   const [jobTermsLoading, setJobTermsLoading] = useState(true);
   const [generatingJobTerms, setGeneratingJobTerms] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(
+    null
+  );
+
+  const handleMaterialClick = (material: Material) => {
+    setSelectedMaterial(material);
+    setDialogOpen(true);
+  };
+
+  const handleRedirectToProfile = () => {
+    router.push("/user-profile");
+  };
+
+  const handleFeelingStuck = () => {
+    router.push("/mentor?mode=stuck");
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -109,24 +133,28 @@ export default function ApplyDashboard() {
     const fetchJobSearchTerms = async () => {
       try {
         setJobTermsLoading(true);
-        
+
         // Get current user
         const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
         if (!user) return;
 
         // Get the most recent career chat
         const { data: recentChat } = await supabase
-          .from('career_chats')
-          .select('id')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
+          .from("career_chats")
+          .select("id")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
           .limit(1)
           .single();
 
         if (recentChat) {
-          const terms = await getJobSearchTermsFromCareerChatClient(recentChat.id);
+          const terms = await getJobSearchTermsFromCareerChatClient(
+            recentChat.id
+          );
           setJobSearchTerms(terms);
           console.log("🔍 Job search terms from career chat:", terms);
         }
@@ -145,19 +173,26 @@ export default function ApplyDashboard() {
     const fetchMotivationalQuote = async () => {
       try {
         setQuoteLoading(true);
-        const response = await fetch('/api/motivational-quote');
-        
+        const response = await fetch("/api/motivational-quote");
+
         if (response.ok) {
           const data = await response.json();
-          setMotivationalQuote(data.quote || "Your teaching experience is your superpower. Every lesson you've planned, every student you've inspired, every challenge you've overcome - these are the skills that will make you unstoppable in your new career.");
+          setMotivationalQuote(
+            data.quote ||
+              "Your teaching experience is your superpower. Every lesson you've planned, every student you've inspired, every challenge you've overcome - these are the skills that will make you unstoppable in your new career."
+          );
         } else {
           // Fallback quote if API fails
-          setMotivationalQuote("Your teaching experience is your superpower. Every lesson you've planned, every student you've inspired, every challenge you've overcome - these are the skills that will make you unstoppable in your new career.");
+          setMotivationalQuote(
+            "Your teaching experience is your superpower. Every lesson you've planned, every student you've inspired, every challenge you've overcome - these are the skills that will make you unstoppable in your new career."
+          );
         }
       } catch (error) {
         console.error("Error fetching motivational quote:", error);
         // Fallback quote
-        setMotivationalQuote("Your teaching experience is your superpower. Every lesson you've planned, every student you've inspired, every challenge you've overcome - these are the skills that will make you unstoppable in your new career.");
+        setMotivationalQuote(
+          "Your teaching experience is your superpower. Every lesson you've planned, every student you've inspired, every challenge you've overcome - these are the skills that will make you unstoppable in your new career."
+        );
       } finally {
         setQuoteLoading(false);
       }
@@ -199,19 +234,21 @@ export default function ApplyDashboard() {
   const handleGenerateJobTerms = async () => {
     try {
       setGeneratingJobTerms(true);
-      
+
       // Get current user
       const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
       if (!user) return;
 
       // Get the most recent career chat
       const { data: recentChat } = await supabase
-        .from('career_chats')
-        .select('id')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
+        .from("career_chats")
+        .select("id")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
         .limit(1)
         .single();
 
@@ -221,10 +258,10 @@ export default function ApplyDashboard() {
       }
 
       // Call API to generate job search terms
-      const response = await fetch('/api/career/generate-job-terms', {
-        method: 'POST',
+      const response = await fetch("/api/career/generate-job-terms", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           chatId: recentChat.id,
@@ -267,12 +304,15 @@ export default function ApplyDashboard() {
             <CardContent className="space-y-3">
               {jobTermsLoading ? (
                 <div className="text-center py-4">
-                  <p className="text-sm text-gray-500">Loading job search terms...</p>
+                  <p className="text-sm text-gray-500">
+                    Loading job search terms...
+                  </p>
                 </div>
               ) : !jobSearchTerms ? (
                 <div className="text-center py-4">
                   <p className="text-sm text-gray-600 mb-3">
-                    No job search terms found. Generate personalized terms based on your career chat.
+                    No job search terms found. Generate personalized terms based
+                    on your career chat.
                   </p>
                   <Button
                     variant="outline"
@@ -286,7 +326,7 @@ export default function ApplyDashboard() {
                         Generating...
                       </>
                     ) : (
-                      'Generate Job Search Terms'
+                      "Generate Job Search Terms"
                     )}
                   </Button>
                 </div>
@@ -379,17 +419,23 @@ export default function ApplyDashboard() {
             <CardContent>
               {quoteLoading ? (
                 <div className="text-center py-4">
-                  <p className="text-sm text-gray-500">Generating inspiration...</p>
+                  <p className="text-sm text-gray-500">
+                    Generating inspiration...
+                  </p>
                 </div>
               ) : (
                 <>
                   <blockquote className="text-sm italic text-gray-700 mb-4">
                     "{motivationalQuote}"
                   </blockquote>
-                  <p className="text-xs text-gray-600 mb-4">—AI Career Coach</p>
                 </>
               )}
-              <Button variant="outline" size="sm" className="w-full">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={handleFeelingStuck}
+              >
                 Feeling stuck?
               </Button>
             </CardContent>
@@ -411,19 +457,25 @@ export default function ApplyDashboard() {
                 materials.map((material) => (
                   <div
                     key={material.id}
-                    className="flex items-center justify-between p-2 border rounded hover:bg-gray-50"
+                    className="flex items-center justify-between p-3 border rounded hover:bg-gray-50"
                   >
                     <div className="flex items-center">
-                      <ExternalLink className="mr-2 h-4 w-4 text-gray-500" />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRedirectToProfile()}
+                        className="p-2"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
                       <span className="text-sm">{material.name}</span>
                     </div>
                     <div className="flex gap-2">
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => {
-                          router.push("/user-profile");
-                        }}
+                        onClick={() => handleMaterialClick(material)}
+                        className="p-2"
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
@@ -449,19 +501,57 @@ export default function ApplyDashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <a href="/mentor">
-                <Button
-                  className="w-full hover:cursor-pointer bg-gray-800 hover:bg-gray-900"
-                  size="lg"
-                >
-                  <MessageCircle className="mr-2 h-4 w-4" />
-                  Ask AI
-                </Button>
-              </a>
+              <Button
+                className="w-full hover:cursor-pointer bg-gray-800 hover:bg-gray-900"
+                size="lg"
+                onClick={handleFeelingStuck}
+              >
+                <MessageCircle className="mr-2 h-4 w-4" />
+                Ask AI
+              </Button>
             </CardContent>
           </Card>
         </div>
       </div>
+
+      {/* Material Content Sheet */}
+      <Sheet open={dialogOpen} onOpenChange={setDialogOpen}>
+        <SheetContent className="w-[600px] px-5 sm:w-[800px]">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <ExternalLink className="h-5 w-5" />
+              {selectedMaterial?.name}
+            </SheetTitle>
+          </SheetHeader>
+          <div className="mt-6">
+            {selectedMaterial?.content ? (
+              <div className="bg-gray-50 p-4 rounded-lg max-h-[500px] overflow-y-auto">
+                <pre className="whitespace-pre-wrap text-sm font-sans">
+                  {selectedMaterial.content}
+                </pre>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-500">
+                  No content available for this material.
+                </p>
+              </div>
+            )}
+            <div className="mt-6 flex gap-3">
+              <Button
+                onClick={handleRedirectToProfile}
+                className="flex items-center gap-2"
+              >
+                <User className="h-4 w-4" />
+                Go to Profile
+              </Button>
+              <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                Close
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

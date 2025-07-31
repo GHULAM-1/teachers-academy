@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 import { generateId } from 'ai';
 
 export default function MentorPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const stuckMode = searchParams.get('mode') === 'stuck';
   const supabase = createClient();
 
   useEffect(() => {
@@ -43,7 +45,7 @@ export default function MentorPage() {
         }
         
         // Redirect to the new chat
-        router.push(`/mentor/chat/${id}`);
+        router.push(`/mentor/chat/${id}${stuckMode ? '?mode=stuck' : ''}`);
       } catch (error) {
         console.error('Auth error:', error);
         router.push('/auth');

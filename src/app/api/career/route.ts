@@ -167,7 +167,15 @@ Dear Hiring Manager,
 
 Keep responses conversational during the Q&A phase, but when generating final materials, be completely silent except for the identifier + content.
 
-**IMPORTANT: After generating materials, Ask user to move to apply step. Do not automatically suggest moving to the apply step. Simply ask "What would you like to do next?" and let them choose.`,
+**IMPORTANT: After generating materials, Ask user to move to apply step. Do not automatically suggest moving to the apply step. Simply ask "What would you like to do next?" and let them choose.
+
+**TRANSITION HANDLING:**
+When users say they want to move to the next step (like "move to next step", "ready to apply", "let's move forward"), acknowledge their readiness and transition to the apply step by saying something like:
+"Perfect! You're ready to move forward. Let's transition to the Apply step where we'll help you find and apply to relevant job opportunities for your career path."
+
+**MATERIAL GENERATION:**
+When generating final materials, be completely silent except for the identifier + content.
+When generating final materials, be completely silent except for the identifier + content.`,
 
   'apply': `You are helping the user actively apply to jobs and opportunities in their chosen career path. Your role is to guide them through the job search and application process.
 
@@ -1291,6 +1299,48 @@ export async function POST(req: Request) {
   if (currentStep === 'create') {
     console.log(`🔧 Using AI generation for create step: ${currentStep}`);
     
+    // Check if user wants to move to apply step
+    const lastUserMessage = messages[messages.length - 1]?.content?.toLowerCase() || '';
+    const wantsToMoveToApply = lastUserMessage.includes('move to next step') || 
+                             lastUserMessage.includes('move to apply') || 
+                             lastUserMessage.includes('apply step') || 
+                             lastUserMessage.includes('start applying') ||
+                             lastUserMessage.includes('ready to apply');
+
+    if (wantsToMoveToApply) {
+      console.log(`🚀 User requested transition to apply step`);
+      
+      // Generate simple response and update step
+      const simpleResponse = "Sure, moving to your profile";
+      
+      // Save the response with apply step
+      await saveCareerChatWithUser({
+        id,
+        userId: user.id,
+        messages: [{
+          id: generateId(),
+          role: 'assistant',
+          content: simpleResponse,
+          step: 'apply',
+          createdAt: new Date()
+        }],
+        currentStep: 'apply',
+        supabaseClient: adminClient,
+      });
+      
+      console.log(`💾 Saved simple response with apply step`);
+      
+      // Return the simple response
+      return new Response(JSON.stringify({
+        id: generateId(),
+        role: 'assistant',
+        content: simpleResponse,
+        step: 'apply'
+      }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
     // Use the detailed create prompt to let AI generate materials
     const createPrompt = STEP_PROMPTS['create'];
     
@@ -1370,6 +1420,7 @@ Why Exploring: ${profile?.exploring_opportunities || 'Not specified'}
           });
           
           console.log(`💾 Saved AI response with step: ${currentStep}`);
+          console.log(`🔍 Final step after transition check: ${currentStep}`);
 
           // Detect and save career materials
           for (const msg of newResponseMessages) {

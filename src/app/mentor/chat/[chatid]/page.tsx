@@ -8,8 +8,13 @@ import Mentor from '@/components/mentor/mentor';
  * Following AI SDK pattern: https://ai-sdk.dev/docs/ai-sdk-ui/chatbot-message-persistence
  * Loads existing chat and displays it at /mentor/chat/[chatid]
  */
-export default async function Page(props: { params: Promise<{ chatid: string }> }) {
+export default async function Page(props: { 
+  params: Promise<{ chatid: string }>;
+  searchParams: Promise<{ mode?: string }>;
+}) {
   const { chatid } = await props.params; // get the chat ID from the URL
+  const { mode } = await props.searchParams; // get the mode from URL params
+  const stuckMode = mode === 'stuck';
   
   // Get server-side authentication
   const cookieStore = await cookies();
@@ -65,7 +70,7 @@ export default async function Page(props: { params: Promise<{ chatid: string }> 
         createdAt: new Date(msg.created_at)
       }));
 
-    return <Mentor chatId={chatid} initialMessages={messages} />; // display the chat with smart resume
+    return <Mentor chatId={chatid} initialMessages={messages} stuckMode={stuckMode} />; // display the chat with smart resume
   } catch (error) {
     console.error('Error loading chat:', error);
     return (
