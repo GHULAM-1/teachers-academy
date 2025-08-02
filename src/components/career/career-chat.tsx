@@ -300,7 +300,7 @@ export default function CareerChat({
   // Listen for custom save dialog events from sidebar
   useEffect(() => {
     const handleShowSaveDialog = (event: CustomEvent) => {
-      if (hasChatStarted && chatId) {
+      if (hasChatStarted && !isExistingChat && chatId) {
         console.log("📡 Received showSaveDialog event for career chat");
         const intendedUrl = event.detail?.intendedUrl;
         console.log("🎯 Intended navigation:", intendedUrl);
@@ -323,12 +323,12 @@ export default function CareerChat({
         handleShowSaveDialog as EventListener
       );
     };
-  }, [hasChatStarted, chatId, triggerSaveDialog]);
+  }, [hasChatStarted, isExistingChat, chatId, triggerSaveDialog]);
 
   // Set a global flag for the sidebar to know if we're in a new career chat
   useEffect(() => {
     if (typeof window !== "undefined") {
-      (window as any).isNewCareerChat = hasChatStarted && !!chatId;
+      (window as any).isNewCareerChat = hasChatStarted && !isExistingChat && !!chatId;
     }
 
     // Cleanup: clear the flag when component unmounts
@@ -337,7 +337,7 @@ export default function CareerChat({
         (window as any).isNewCareerChat = false;
       }
     };
-  }, [hasChatStarted, chatId]);
+  }, [hasChatStarted, isExistingChat, chatId]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
