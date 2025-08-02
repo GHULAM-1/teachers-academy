@@ -1,6 +1,7 @@
 import { openai } from '@ai-sdk/openai';
 import { TransformStream } from 'stream/web';
 import { streamText, appendResponseMessages } from 'ai';
+import { Message } from 'ai';
 import { saveChat, updateChatTitle, saveChatWithUser, updateChatTitleWithUser } from '@/lib/chat-store';
 import { createServerSupabaseClient, createAdminSupabaseClient } from '@/lib/supabase';
 import { cookies } from 'next/headers';
@@ -199,13 +200,48 @@ Remember, every teacher I've worked with has faced similar challenges, and you'r
           };
         });
         
-        // Combine original messages with new messages
-        const allMessages = [...messages, ...newMessages];
+        // Get the user's message (the last message in the input array)
+        const userMessage = messages[messages.length - 1];
+        
+        // Create proper sequential timestamps for chronological order
+        const baseTime = Date.now();
+        let messageIndex = 0;
+        
+        // Convert response messages to the correct Message format with proper timestamps
+        const aiMessagesToSave = newMessages.map(msg => ({
+          id: msg.id,
+          role: msg.role,
+          content: msg.content,
+          createdAt: new Date(baseTime + (messageIndex++ * 1000)) // Each message gets a timestamp 1 second later
+        })) as Message[];
+        
+        // Only save user message if it's not a trigger message
+        const messagesToSave = [];
+        
+        // Add user message if it's not a trigger message (with timestamp BEFORE AI response)
+        if (userMessage && 
+            userMessage.role === 'user' && 
+            userMessage.content && 
+            userMessage.content.trim() !== '' && 
+            userMessage.content.trim() !== 'begin' && 
+            userMessage.content.trim() !== 'start') {
+          messagesToSave.push({
+            id: userMessage.id,
+            role: userMessage.role,
+            content: userMessage.content,
+            createdAt: new Date(baseTime - 1000) // User message comes 1 second BEFORE AI response
+          });
+        }
+        
+        // Add AI messages
+        messagesToSave.push(...aiMessagesToSave);
+        
+        const allMessagesToSave = messagesToSave as Message[];
         
         await saveChatWithUser({
           id,
           userId: user.id,
-          messages: allMessages,
+          messages: allMessagesToSave,
             supabaseClient: adminClient,
         });
 

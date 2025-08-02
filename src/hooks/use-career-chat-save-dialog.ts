@@ -143,8 +143,6 @@ export function useCareerChatSaveDialog(chatId: string | undefined, shouldShowDi
 
     console.log('🔧 Career chat save dialog hooks active:', { chatId: chatId.substring(0, 8) + '...', shouldShowDialog });
 
-
-
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (hasShownDialogRef.current || isLeavingRef.current) return;
 
@@ -162,26 +160,6 @@ export function useCareerChatSaveDialog(chatId: string | undefined, shouldShowDi
         e.preventDefault();
         e.returnValue = 'You have unsaved changes. Please use the save dialog.';
         return e.returnValue;
-      }
-    };
-
-    // Handle page visibility change (when user switches tabs or minimizes)
-    // Only show dialog if user has been active on the page for a reasonable time
-    let visibilityTimeout: NodeJS.Timeout;
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden' && shouldShowDialog && !hasShownDialogRef.current && !isLeavingRef.current) {
-        // Only show dialog if user has been on the page for at least 30 seconds
-        // This prevents showing dialog on quick tab switches
-        visibilityTimeout = setTimeout(() => {
-          console.log('🔄 Page hidden for extended time - showing save dialog');
-          intendedNavigationRef.current = '/';
-          setShowSaveDialog(true);
-        }, 30000); // 30 seconds delay
-      } else if (document.visibilityState === 'visible') {
-        // Clear timeout if user returns to the tab
-        if (visibilityTimeout) {
-          clearTimeout(visibilityTimeout);
-        }
       }
     };
 
@@ -206,16 +184,14 @@ export function useCareerChatSaveDialog(chatId: string | undefined, shouldShowDi
       }
     };
 
-                    // Add event listeners
-                window.addEventListener('beforeunload', handleBeforeUnload);
-                document.addEventListener('keydown', handleKeyDown);
-                document.addEventListener('visibilitychange', handleVisibilityChange);
+    // Add event listeners
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('keydown', handleKeyDown);
 
-                return () => {
-                  window.removeEventListener('beforeunload', handleBeforeUnload);
-                  document.removeEventListener('keydown', handleKeyDown);
-                  document.removeEventListener('visibilitychange', handleVisibilityChange);
-                };
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, [chatId, shouldShowDialog]);
 
   return {

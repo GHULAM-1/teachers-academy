@@ -20,6 +20,8 @@ import {
   Eye,
   Loader2,
   User,
+  Linkedin,
+  Briefcase,
 } from "lucide-react";
 import {
   getAllCareerMaterialsFromProfileClient,
@@ -29,6 +31,7 @@ import {
 } from "@/lib/career-materials";
 import { getJobSearchTermsFromCareerChatClient } from "@/lib/career-chat-store";
 import { createClient } from "@/lib/supabase";
+import MaterialCard from "@/components/material-card";
 
 interface Material {
   id: string;
@@ -55,6 +58,28 @@ export default function ApplyDashboard() {
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(
     null
   );
+
+  // Step progress configuration
+  const STEPS = [
+    {
+      id: "discover",
+      name: "Discover",
+      description: "Explore potential career paths",
+    },
+    {
+      id: "create",
+      name: "Create Materials",
+      description: "Build professional materials",
+    },
+    {
+      id: "apply",
+      name: "Apply",
+      description: "Apply to jobs and opportunities",
+    },
+  ];
+
+  const currentStep = "apply"; // This is the apply dashboard
+  const currentStepIndex = STEPS.findIndex((step) => step.id === currentStep);
 
   const handleMaterialClick = (material: Material) => {
     setSelectedMaterial(material);
@@ -157,6 +182,12 @@ export default function ApplyDashboard() {
           );
           setJobSearchTerms(terms);
           console.log("🔍 Job search terms from career chat:", terms);
+
+          // If no terms found, automatically generate them
+          if (!terms) {
+            console.log("🔄 No job search terms found, auto-generating...");
+            await handleGenerateJobTerms();
+          }
         }
       } catch (error) {
         console.error("Error fetching job search terms:", error);
@@ -286,231 +317,285 @@ export default function ApplyDashboard() {
   return (
     <div className="min-h-screen p-6">
       <div className="max-w-6xl mx-auto">
+        {/* Step Progress Bar */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Apply Dashboard
-          </h1>
-          <p className="text-gray-600">
-            Track your job applications and manage your career materials
-          </p>
-        </div>
+          <div className="flex items-center space-x-4 mb-4">
+            {STEPS.map((step, index) => {
+              // Determine if this step should be active
+              const isActive = index <= currentStepIndex;
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Find Jobs */}
-          <Card className="bg-white">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold">Find Jobs</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {jobTermsLoading ? (
-                <div className="text-center py-4">
-                  <p className="text-sm text-gray-500">
-                    Loading job search terms...
-                  </p>
-                </div>
-              ) : !jobSearchTerms ? (
-                <div className="text-center py-4">
-                  <p className="text-sm text-gray-600 mb-3">
-                    No job search terms found. Generate personalized terms based
-                    on your career chat.
-                  </p>
-                  <Button
-                    variant="outline"
-                    onClick={handleGenerateJobTerms}
-                    disabled={generatingJobTerms}
-                    className="w-full"
-                  >
-                    {generatingJobTerms ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Generating...
-                      </>
-                    ) : (
-                      "Generate Job Search Terms"
-                    )}
-                  </Button>
-                </div>
-              ) : (
-                <>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start"
-                    asChild
-                    disabled={!userProfile}
-                  >
-                    <a
-                      href={generateJobSearchUrl("linkedin")}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <ExternalLink className="mr-2 h-4 w-4" />
-                      LinkedIn
-                      <span className="ml-2 text-xs text-gray-500">
-                        (Filtered)
-                      </span>
-                    </a>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start"
-                    asChild
-                    disabled={!userProfile}
-                  >
-                    <a
-                      href={generateJobSearchUrl("indeed")}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <ExternalLink className="mr-2 h-4 w-4" />
-                      Indeed
-                      <span className="ml-2 text-xs text-gray-500">
-                        (Filtered)
-                      </span>
-                    </a>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start"
-                    asChild
-                    disabled={!userProfile}
-                  >
-                    <a
-                      href={generateJobSearchUrl("flexjobs")}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <ExternalLink className="mr-2 h-4 w-4" />
-                      FlexJobs
-                      <span className="ml-2 text-xs text-gray-500">
-                        (Filtered)
-                      </span>
-                    </a>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start"
-                    asChild
-                    disabled={!userProfile}
-                  >
-                    <a
-                      href={generateJobSearchUrl("google")}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <ExternalLink className="mr-2 h-4 w-4" />
-                      Google Jobs
-                      <span className="ml-2 text-xs text-gray-500">
-                        (Filtered)
-                      </span>
-                    </a>
-                  </Button>
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Motivation & Mindset */}
-          <Card className="bg-white">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold">
-                Motivation & Mindset
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {quoteLoading ? (
-                <div className="text-center py-4">
-                  <p className="text-sm text-gray-500">
-                    Generating inspiration...
-                  </p>
-                </div>
-              ) : (
-                <>
-                  <blockquote className="text-sm italic text-gray-700 mb-4">
-                    "{motivationalQuote}"
-                  </blockquote>
-                </>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={handleFeelingStuck}
-              >
-                Feeling stuck?
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* My Materials */}
-          <Card className="bg-white">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-lg font-semibold">
-                My Materials
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {loading ? (
-                <div className="text-center py-4">
-                  <p className="text-sm text-gray-500">Loading materials...</p>
-                </div>
-              ) : materials.length > 0 ? (
-                materials.map((material) => (
+              return (
+                <div
+                  key={step.id}
+                  className="flex items-center justify-center flex-1"
+                >
                   <div
-                    key={material.id}
-                    className="flex items-center justify-between p-3 border rounded hover:bg-gray-50"
+                    className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all ${
+                      isActive
+                        ? "bg-[#02133B] text-white border-[#02133B]"
+                        : "bg-white text-[#02133B]/50 border-[#02133B]/20"
+                    }`}
                   >
-                    <div className="flex items-center">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRedirectToProfile()}
-                        className="p-2"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                      </Button>
-                      <span className="text-sm">{material.name}</span>
+                    {index + 1}
+                  </div>
+                  <div className="ml-3 flex-1 max-w-[210px]">
+                    <div
+                      className={`text-sm font-medium ${
+                        isActive ? "text-[#02133B]" : "text-[#02133B]/50"
+                      }`}
+                    >
+                      {step.name}
                     </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleMaterialClick(material)}
-                        className="p-2"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
+                    <div
+                      className={`text-xs ${
+                        isActive ? "text-[#02133B]/70" : "text-[#02133B]/40"
+                      }`}
+                    >
+                      {step.description}
                     </div>
                   </div>
-                ))
-              ) : (
-                <div className="text-center py-4">
-                  <p className="text-sm text-gray-500">No materials found</p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    Create materials in the Create step
-                  </p>
+                  {index < STEPS.length - 1 && (
+                    <div className="flex items-center ml-4">
+                      <div
+                        className={`w-8 h-0.5 ${
+                          isActive ? "bg-[#02133B]" : "bg-[#02133B]/20"
+                        }`}
+                      />
+                    </div>
+                  )}
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              );
+            })}
+          </div>
+        </div>
 
-          {/* Feeling Stuck */}
-          <Card className="bg-white">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold flex items-center">
-                Feeling stuck ?
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Button
-                className="w-full hover:cursor-pointer bg-gray-800 hover:bg-gray-900"
-                size="lg"
-                onClick={handleFeelingStuck}
-              >
-                <MessageCircle className="mr-2 h-4 w-4" />
-                Ask AI
-              </Button>
-            </CardContent>
-          </Card>
+        <div className="my-8">
+          <p className="text-primary-text text-center">
+            Track your application here{" "}
+          </p>
+        </div>
+        <div className="flex gap-6">
+          <div className="flex flex-col gap-6 w-[75%]">
+            {/* Find Jobs */}
+            <Card className="bg-white gap-2">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold">
+                  Find Jobs
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {jobTermsLoading ? (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-gray-500">
+                      Loading job search terms...
+                    </p>
+                  </div>
+                ) : !jobSearchTerms ? (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-gray-600 mb-3">
+                      {generatingJobTerms
+                        ? "Generating personalized job search terms based on your career chat..."
+                        : "No job search terms found. Generating personalized terms based on your career chat..."}
+                    </p>
+                    {generatingJobTerms && (
+                      <div className="flex items-center justify-center">
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        <span className="text-sm text-gray-500">
+                          Generating...
+                        </span>
+                      </div>
+                    )}
+                    {!generatingJobTerms && (
+                      <Button
+                        variant="outline"
+                        onClick={handleGenerateJobTerms}
+                        className="w-full"
+                      >
+                        Generate Job Search Terms
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start py-6 hover:bg-hover-blue"
+                      asChild
+                      disabled={!userProfile}
+                    >
+                      <a
+                        href={generateJobSearchUrl("linkedin")}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <img
+                          src="/linked.png"
+                          alt=""
+                          className="mr-2 h-4 w-4"
+                        />
+                        LinkedIn
+                      </a>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start py-6 hover:bg-hover-blue"
+                      asChild
+                      disabled={!userProfile}
+                    >
+                      <a
+                        href={generateJobSearchUrl("indeed")}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <img
+                          src="/indeed.png"
+                          alt=""
+                          className="mr-2 h-4 w-4"
+                        />
+                        Indeed
+                      </a>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start py-6 hover:bg-hover-blue"
+                      asChild
+                      disabled={!userProfile}
+                    >
+                      <a
+                        href={generateJobSearchUrl("flexjobs")}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <img src="/flex.png" alt="" className="mr-2 h-4 w-4" />
+                        FlexJobs
+                      </a>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start py-6 hover:bg-hover-blue"
+                      asChild
+                      disabled={!userProfile}
+                    >
+                      <a
+                        href={generateJobSearchUrl("google")}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <img
+                          src="/google.png"
+                          alt=""
+                          className="mr-2 h-4 w-4"
+                        />
+                        Google Jobs
+                      </a>
+                    </Button>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Motivation & Mindset */}
+
+            <div>
+              <div className="bg-white flex flex-col gap-[32px] rounded-xl p-6">
+                <div>
+                  <CardHeader className="pb-[16px] pt-0 px-0">
+                    <CardTitle className="text-lg font-semibold">
+                      Motivation & Mindset
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    {quoteLoading ? (
+                      <div className="text-center py-4">
+                        <p className="text-sm text-gray-500">
+                          Generating inspiration...
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <blockquote className="text-sm italic text-gray-700 mb-4">
+                          "{motivationalQuote}"
+                        </blockquote>
+                      </>
+                    )}
+                  </CardContent>
+                </div>
+                <div>
+                  <CardHeader className="pb-[16px] pt-0 px-0">
+                    <CardTitle className="text-lg font-semibold flex items-center">
+                      Feeling stuck ?
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <p className="text-primary-text pb-4 text-[16px]">
+                      Stuck on what's next? Your AI has answers.
+                    </p>
+                    <Button
+                      className="text-primary-gold rounded-[12px] hover:cursor-pointer bg-transparent hover:bg-transparent border-primary-gold border-[1px]"
+                      size="lg"
+                      onClick={handleFeelingStuck}
+                    >
+                      Ask AI MENTOR
+                      <ArrowRight className="mr-2 h-4 w-4" />
+                    </Button>
+                  </CardContent>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="w-[35%] h-full">
+            {/* My Materials */}
+            <Card className="bg-white h-[666px]">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-lg font-semibold">
+                  My Materials
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {loading ? (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-gray-500">
+                      Loading materials...
+                    </p>
+                  </div>
+                              ) : materials.length > 0 ? (
+                <div className="space-y-4">
+                  {materials.map((material) => (
+                    <MaterialCard
+                      key={material.id}
+                      title={material.name}
+                      lastEdited={material.created_at ? new Date(material.created_at).toLocaleString() : 'Unknown'}
+                      content={material.content || ''}
+                      materialType={material.type}
+                      onEdit={(updatedContent) => {
+                        console.log('Material updated:', updatedContent);
+                        // Here you can add logic to save the updated content
+                      }}
+                      onDownload={async (fileType) => {
+                        try {
+                          console.log(`Downloading ${material.name} as ${fileType}`);
+                          const content = material.content || '';
+                          const fileName = `${material.name.toLowerCase().replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.${fileType}`;
+                          
+                          await downloadFile(content, fileName, fileType);
+                        } catch (error) {
+                          console.error('Error downloading file:', error);
+                        }
+                      }}
+                    />
+                  ))}
+                </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-gray-500">No materials found</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Create materials in the Create step
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
 

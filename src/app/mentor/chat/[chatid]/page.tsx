@@ -54,21 +54,13 @@ export default async function Page(props: {
       throw new Error(`Failed to load chat: ${error.message}`);
     }
 
-    // Convert database format to AI SDK Message format and filter out trigger messages
-    const messages: Message[] = (data || [])
-      .filter((msg, index) => {
-        // Filter out ALL trigger messages (begin, start, empty) regardless of position
-        if (msg.role === 'user' && (!msg.content || msg.content.trim() === '' || msg.content.trim() === 'begin' || msg.content.trim() === 'start')) {
-          return false;
-        }
-        return true;
-      })
-      .map(msg => ({
-        id: msg.id,
-        role: msg.role as 'user' | 'assistant' | 'system',
-        content: msg.content,
-        createdAt: new Date(msg.created_at)
-      }));
+    // Convert database format to AI SDK Message format
+    const messages: Message[] = (data || []).map(msg => ({
+      id: msg.id,
+      role: msg.role as 'user' | 'assistant' | 'system',
+      content: msg.content,
+      createdAt: new Date(msg.created_at)
+    }));
 
     return <Mentor chatId={chatid} initialMessages={messages} stuckMode={stuckMode} />; // display the chat with smart resume
   } catch (error) {

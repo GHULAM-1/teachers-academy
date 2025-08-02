@@ -4,6 +4,7 @@ import { useAuth } from '@/components/auth/auth-provider';
 import LayoutContent from '@/components/layout-content';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import Loading from '@/components/ui/loading';
 
 interface ProtectedLayoutProps {
   children: React.ReactNode;
@@ -34,16 +35,9 @@ export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
     }
   }, [user, loading, pathname, isPublicRoute, router]);
 
-  // Show loading state
+  // Show loading state only in content area, not full screen
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#E4EDFF]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#02133B] mx-auto mb-4"></div>
-          <p className="text-[#02133B] font-medium">Loading...</p>
-        </div>
-      </div>
-    );
+    return <LayoutContent isLoading={true}><div></div></LayoutContent>;
   }
 
   // Show auth page without layout for unauthenticated users

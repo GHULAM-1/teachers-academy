@@ -1,6 +1,7 @@
 import { openai } from '@ai-sdk/openai';
 import { TransformStream } from 'stream/web';
 import { streamText, appendResponseMessages } from 'ai';
+import { Message } from 'ai';
 import { saveChat, updateChatTitle, saveChatWithUser, updateChatTitleWithUser } from '@/lib/chat-store';
 import { createServerSupabaseClient, createAdminSupabaseClient } from '@/lib/supabase';
 import { cookies } from 'next/headers';
@@ -9,6 +10,8 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 export async function POST(req: Request) {
+  console.log('🚀 Chat API called at:', new Date().toISOString());
+  
   if (!process.env.OPENAI_API_KEY) {
     console.error('OpenAI API key not configured');
     return new Response('OpenAI API key not configured', { status: 500 });
@@ -29,6 +32,11 @@ export async function POST(req: Request) {
     const body = await req.json();
     messages = body.messages;
     id = body.id;
+    console.log('📨 API received:', { 
+      chatId: id?.substring(0, 8) + '...',
+      messagesCount: messages?.length,
+      firstMessage: messages?.[0]?.content?.substring(0, 30) + '...'
+    });
   } catch (error) {
     console.error('Failed to parse request body:', error);
     return new Response('Invalid JSON in request body', { status: 400 });
@@ -64,22 +72,9 @@ export async function POST(req: Request) {
     .single();
 
   if (chatCheckError && chatCheckError.code === 'PGRST116') {
-    // Chat doesn't exist, try to create it
-    const { error: createError } = await adminClient
-      .from('chats')
-      .insert({
-        id,
-        user_id: user.id,
-        title: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      });
-    
-    if (createError && createError.code !== '23505') {
-      // Only fail if it's not a duplicate key error (23505 means chat already exists)
-      console.error('Failed to create missing chat:', createError);
-      return new Response('Chat could not be created', { status: 500 });
-    }
+    // Chat doesn't exist, but don't create it here - let the frontend handle chat creation
+    console.log(`🚫 Chat ${id} doesn't exist, but not creating it in API`);
+    return new Response('Chat not found', { status: 404 });
   } else if (chatCheckError && chatCheckError.code !== 'PGRST116') {
     // Some other error occurred during chat check
     console.error('Error checking chat existence:', chatCheckError);
@@ -95,57 +90,6 @@ export async function POST(req: Request) {
 
   const isAssessmentPhase = userMessageCount < 8;
 
-  // Simplified transform that's more robust
-  const assessmentTransform = (): any => {
-    let foundQuestionMark = false;
-    let buffer = '';
-    
-    return new TransformStream({
-      transform(chunk: any, controller) {
-        try {
-          if (foundQuestionMark) {
-            // Still process other chunk types, just not text-delta
-            if (chunk?.type !== 'text-delta') {
-              controller.enqueue(chunk);
-            }
-            return;
-          }
-
-        if (chunk?.type === 'text-delta' && typeof chunk.textDelta === 'string') {
-            buffer += chunk.textDelta;
-            const qmIndex = buffer.indexOf('?');
-
-          if (qmIndex === -1) {
-            controller.enqueue(chunk);
-          } else {
-              // Send up to and including the question mark
-              const allowedText = buffer.slice(0, qmIndex + 1);
-              const remainingText = chunk.textDelta.slice(0, qmIndex + 1 - (buffer.length - chunk.textDelta.length));
-              
-              if (remainingText.length > 0) {
-                controller.enqueue({ ...chunk, textDelta: remainingText });
-              }
-            foundQuestionMark = true;
-          }
-        } else {
-          controller.enqueue(chunk);
-          }
-        } catch (error) {
-          console.error('Transform error:', error);
-          controller.enqueue(chunk); // Fallback: pass through
-        }
-      },
-      flush(controller) {
-        // Ensure stream is properly closed
-        try {
-          controller.terminate();
-        } catch (error) {
-          console.error('Transform flush error:', error);
-        }
-      }
-    });
-  };
-  
   console.log(`🤖 Using model: gpt-4o`);
   console.log(`🔑 OpenAI API Key exists:`, !!process.env.OPENAI_API_KEY);
   
@@ -385,13 +329,48 @@ If user said NO to your recommendation:
           };
         });
         
-        // Combine original messages with new messages
-        const allMessages = [...messages, ...newMessages];
+        // Get the user's message (the last message in the input array)
+        const userMessage = messages[messages.length - 1];
+        
+        // Create proper sequential timestamps for chronological order
+        const baseTime = Date.now();
+        let messageIndex = 0;
+        
+        // Convert response messages to the correct Message format with proper timestamps
+        const aiMessagesToSave = newMessages.map(msg => ({
+          id: msg.id,
+          role: msg.role,
+          content: msg.content,
+          createdAt: new Date(baseTime + (messageIndex++ * 1000)) // Each message gets a timestamp 1 second later
+        })) as Message[];
+        
+        // Only save user message if it's not a trigger message
+        const messagesToSave = [];
+        
+        // Add user message if it's not a trigger message (with timestamp BEFORE AI response)
+        if (userMessage && 
+            userMessage.role === 'user' && 
+            userMessage.content && 
+            userMessage.content.trim() !== '' && 
+            userMessage.content.trim() !== 'begin' && 
+            userMessage.content.trim() !== 'start') {
+          messagesToSave.push({
+            id: userMessage.id,
+            role: userMessage.role,
+            content: userMessage.content,
+            createdAt: new Date(baseTime - 1000) // User message comes 1 second BEFORE AI response
+          });
+        }
+        
+        // Add AI messages
+        messagesToSave.push(...aiMessagesToSave);
+        
+        const allMessagesToSave = messagesToSave as Message[];
         
         await saveChatWithUser({
           id,
           userId: user.id,
-          messages: allMessages,
+          messages: allMessagesToSave,
             supabaseClient: adminClient,
         });
 

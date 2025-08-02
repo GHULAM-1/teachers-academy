@@ -8,6 +8,7 @@ import { getAllCareerMaterialsFromProfileClient, downloadFile, generateFileConte
 import { useAuth } from '@/components/auth/auth-provider';
 import { Download, FileText, FileEdit, Linkedin, Mail, Loader2, Edit } from 'lucide-react';
 import EditableMaterial from './editable-material';
+import MaterialCard from '@/components/material-card';
 
 interface MaterialsDisplayProps {
   className?: string;

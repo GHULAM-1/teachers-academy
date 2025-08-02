@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -22,6 +22,8 @@ import {
   Rocket,
   LogOut,
   ChevronDown,
+  PanelLeft,
+  PanelRight,
 } from "lucide-react";
 import Image from "next/image";
 import { useAuth } from "./auth/auth-provider";
@@ -78,14 +80,15 @@ const sidebarItems: SidebarItem[] = [
 interface SidebarContentProps {
   isCollapsed?: boolean;
   className?: string;
+  onToggle?: () => void;
 }
 
 function SidebarContent({
   isCollapsed = false,
   className,
+  onToggle,
 }: SidebarContentProps) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const { user, signOut } = useAuth();
   const [chats, setChats] = useState<Chat[]>([]);
   const [careerChats, setCareerChats] = useState<CareerChat[]>([]);
@@ -303,29 +306,7 @@ function SidebarContent({
     return `AI MENTOR CHAT ${index + 1}`;
   };
   return (
-    <div className={cn(" text-white h-full flex flex-col", className)}>
-      {/* Logo */}
-      <div className="p-4">
-        <div className="flex items-center gap-3">
-          <div className=" rounded-lg flex items-center justify-center flex-shrink-0">
-            {isCollapsed ? (
-              <Image
-                src="/logo1.png"
-                alt="Teachers Academy"
-                width={32}
-                height={32}
-              />
-            ) : (
-              <Image
-                src="/logo.png"
-                alt="Teachers Academy"
-                width={123}
-                height={38}
-              />
-            )}
-          </div>
-        </div>
-      </div>
+    <div className={cn(" text-white h-full gap-15 flex flex-col", className)}>
 
       {/* Navigation */}
       <div className="flex-shrink-0 px-3">
@@ -339,10 +320,10 @@ function SidebarContent({
                 key={item.id}
                 variant={isActive ? "secondary" : "ghost"}
                 className={cn(
-                  "w-full justify-start h-12 px-3",
+                  "w-full text-[16px] group gap-0 justify-start h-12 px-3",
                   isActive
-                    ? "bg-[#02133B] text-white hover:bg-[#02133B]"
-                    : "text-[#02133B] hover:bg-[#02133B] hover:text-white"
+                    ? "bg-hover-blue text-active-blue"
+                    : "text-primary-text hover:bg-hover-blue hover:text-active-blue"
                 )}
                 asChild
               >
@@ -355,24 +336,20 @@ function SidebarContent({
                         pathname.startsWith("/career-change/chat/")) &&
                       item.href !== pathname
                     ) {
-                      console.log("🔄 Clicked navigation:", item.href);
                       
                       // Check if we're in a new chat that needs saving
                       if ((window as any).isNewChat || (window as any).isNewCareerChat) {
-                        console.log('💾 New chat detected, showing save dialog');
                         e.preventDefault();
                         window.dispatchEvent(
                           new CustomEvent("showSaveDialog", {
                             detail: { intendedUrl: item.href },
                           })
                         );
-                      } else {
-                        console.log('✅ No new chat, allowing navigation');
                       }
                     }
                   }}
                 >
-                  <Icon className="w-5 h-5 flex-shrink-0" />
+                  <Icon className="w-5 h-5  flex-shrink-0 group-hover:text-active-blue text-primary-text" />
                   {!isCollapsed && (
                     <span className="ml-3 font-medium">{item.label}</span>
                   )}
@@ -383,260 +360,261 @@ function SidebarContent({
         </div>
       </div>
 
-      {!isCollapsed && (
-        <>
-          <Separator className="mx-3 bg-[#02133B]/20 flex-shrink-0" />
-
-          <div className="flex-1 flex flex-col min-h-0 overflow-y-auto px-3 space-y-2">
-            {/* AI Mentor Chats Section */}
-            <div className="flex-shrink-0">
-              <Button
-                variant="ghost"
-                className="w-full justify-between px-3 py-2 h-auto text-left"
-                onClick={() =>
-                  setExpandedSection(
-                    expandedSection === "mentor" ? null : "mentor"
-                  )
-                }
-              >
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-semibold text-[#02133B]">
-                    AI Mentor Chats
-                  </h3>
-                  {isRefreshing && (
-                    <div className="w-3 h-3 border border-[#02133B] border-t-transparent rounded-full animate-spin" />
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  {chats.length > 0 && (
-                    <span className="bg-[#02133B] text-white text-xs font-medium px-2 py-1 rounded-full">
-                      {chats.length}
-                    </span>
-                  )}
-                  <ChevronDown
-                    className={cn(
-                      "w-4 h-4 transition-transform duration-200",
-                      expandedSection === "mentor" ? "rotate-180" : ""
-                    )}
-                  />
-                </div>
-              </Button>
-
-              {/* Collapsible Chat List */}
-              {expandedSection === "mentor" && (
-                <div className="mt-2">
-                  <ScrollArea className="max-h-56">
-                    <div className="space-y-1 pb-4">
-                      {isLoading ? (
-                        <div className="px-3 py-2 text-sm text-[#02133B]/60">
-                          Loading chats...
-                        </div>
-                      ) : chats.length === 0 ? (
-                        <div className="px-3 py-2 text-sm text-[#02133B]/60">
-                          <div className="text-center">
-                            <MessageSquare className="w-6 h-6 mx-auto mb-1 opacity-50" />
-                            <p>No chats yet</p>
-                            <p className="text-xs mt-1">
-                              Start a new conversation!
-                            </p>
-                          </div>
-                        </div>
-                      ) : (
-                        chats.slice(0, 15).map((chat, index) => {
-                          const isActiveChat =
-                            pathname === `/mentor/chat/${chat.id}`;
-                          const chatTitle = generateChatTitle(index);
-                          const creationDate = formatCreationDate(
-                            chat.created_at
-                          );
-
-                          return (
-                            <Button
-                              key={chat.id}
-                              variant="ghost"
-                              className={cn(
-                                "w-full justify-start h-auto p-3 text-left group transition-all duration-200",
-                                isActiveChat
-                                  ? "bg-[#02133B] hover:text-white text-white hover:bg-[#02133B]"
-                                  : "text-[#02133B] hover:bg-[#02133B]/10"
-                              )}
-                              asChild
-                            >
-                              <Link
-                                href={`/mentor/chat/${chat.id}`}
-                                onClick={(e) => {
-                                  console.log("🔄 Clicked chat:", chat.id);
-                                  // For chat links, allow navigation without dialog
-                                  // Chat links are always to saved chats, so no need for save dialog
-                                }}
-                              >
-                                <div className="flex flex-col gap-1.5 w-full">
-                                  <div className="flex items-center gap-2">
-                                    <MessageSquare className="w-3.5 h-3.5 flex-shrink-0 opacity-70" />
-                                    <span className="text-sm font-medium truncate">
-                                      {chatTitle}
-                                    </span>
-                                  </div>
-                                  <div className="flex flex-col gap-0.5">
-                                    <span className="text-xs opacity-70">
-                                      Created: {creationDate}
-                                    </span>
-                                    <span className="text-xs opacity-60">
-                                      {formatDate(chat.updated_at)}
-                                    </span>
-                                  </div>
-                                </div>
-                              </Link>
-                            </Button>
-                          );
-                        })
-                      )}
-                    </div>
-                  </ScrollArea>
-                </div>
+      <div className="flex-1 flex flex-col min-h-15 overflow-y-auto px-3 space-y-2">
+        {!isCollapsed && (
+          <Separator className=" bg-primary-text/20 mb-0 flex-shrink-0 px-3" />
+        )}
+        {/* AI Mentor Chats Section */}
+        <div className="flex-shrink-0 py-[16px] mb-0">
+          <Button
+            variant="ghost"
+            className="w-full justify-between px-3 py-2 h-auto text-left"
+            onClick={() =>
+              setExpandedSection(
+                expandedSection === "mentor" ? null : "mentor"
+              )
+            }
+          >
+            <div className="flex items-center gap-2">
+              {!isCollapsed && (
+                <h3 className="text-[16px] font-semibold text-primary-text">
+                  AI Mentor Chats
+                </h3>
+              )}
+              {isRefreshing && (
+                <div className="w-3 h-3 border border-[#02133B] border-t-transparent rounded-full animate-spin" />
               )}
             </div>
-
-            {/* Career Growth Section */}
-            <div className="flex-shrink-0">
-              <Button
-                variant="ghost"
-                className="w-full justify-between px-3 py-2 h-auto text-left"
-                onClick={() =>
-                  setExpandedSection(
-                    expandedSection === "career" ? null : "career"
-                  )
-                }
-              >
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-semibold text-[#02133B]">
-                    Career Growth
-                  </h3>
-                </div>
-                <div className="flex items-center gap-2">
-                  {careerChats.length > 0 && (
-                    <span className="bg-[#02133B] text-white text-xs font-medium px-2 py-1 rounded-full">
-                      {careerChats.length}
-                    </span>
+            <div className="flex items-center gap-2">
+              {!isCollapsed && chats.length > 0 && (
+                <span className="bg-[#02133B] text-white text-xs font-medium px-[9.5px] py-1 rounded-full">
+                  {chats.length}
+                </span>
+              )}
+              {!isCollapsed && (
+                <ChevronDown
+                  className={cn(
+                    "w-5 h-5 text-primary-text transition-transform duration-200",
+                    expandedSection === "mentor" ? "rotate-180" : ""
                   )}
-                  <ChevronDown
-                    className={cn(
-                      "w-4 h-4 transition-transform duration-200",
-                      expandedSection === "career" ? "rotate-180" : ""
-                    )}
-                  />
-                </div>
-              </Button>
-
-              {/* Collapsible Career Growth List */}
-              {expandedSection === "career" && (
-                <div className="mt-2">
-                  <ScrollArea className="max-h-56">
-                    <div className="space-y-1 pb-4">
-                      {isLoading ? (
-                        <div className="px-3 py-2 text-sm text-[#02133B]/60">
-                          Loading career chats...
-                        </div>
-                      ) : careerChats.length === 0 ? (
-                        <div className="px-3 py-2 text-sm text-[#02133B]/60">
-                          <div className="text-center">
-                            <Award className="w-6 h-6 mx-auto mb-1 opacity-50" />
-                            <p>No career chats yet</p>
-                            <p className="text-xs mt-1">
-                              Start your career journey!
-                            </p>
-                          </div>
-                        </div>
-                      ) : (
-                        careerChats.slice(0, 15).map((chat, index) => {
-                          const chatStep = careerChatSteps[chat.id] || 'discover';
-                          const isActiveChat =
-                            pathname === `/career-change/chat/${chatStep}` && 
-                            searchParams.get('chatId') === chat.id;
-                          const chatTitle = `CAREER JOURNEY ${index + 1}`;
-                          const creationDate = formatCreationDate(
-                            chat.created_at
-                          );
-
-                          return (
-                            <Button
-                              key={chat.id}
-                              variant="ghost"
-                              className={cn(
-                                "w-full justify-start h-auto p-3 text-left group transition-all duration-200",
-                                isActiveChat
-                                  ? "bg-[#02133B] hover:text-white text-white hover:bg-[#02133B]"
-                                  : "text-[#02133B] hover:bg-[#02133B]/10"
-                              )}
-                              asChild
-                            >
-                              <Link
-                                href={`/career-change/chat/${careerChatSteps[chat.id] || 'discover'}?chatId=${chat.id}`}
-                                onClick={(e) => {
-                                  console.log(
-                                    "🔄 Clicked career chat:",
-                                    chat.id,
-                                    "Step:",
-                                    careerChatSteps[chat.id] || 'discover'
-                                  );
-                                  // For career chat links, allow navigation without dialog
-                                  // Career chat links are always to saved chats, so no need for save dialog
-                                }}
-                              >
-                                <div className="flex flex-col gap-1.5 w-full">
-                                  <div className="flex items-center gap-2">
-                                    <Award className="w-3.5 h-3.5 flex-shrink-0 opacity-70" />
-                                    <span className="text-sm font-medium truncate">
-                                      {chatTitle}
-                                    </span>
-                                  </div>
-                                  <div className="flex flex-col gap-0.5">
-                                    <span className="text-xs opacity-70">
-                                      Created: {creationDate}
-                                    </span>
-                                    <span className="text-xs opacity-60">
-                                      {formatDate(chat.updated_at)}
-                                    </span>
-                                  </div>
-                                </div>
-                              </Link>
-                            </Button>
-                          );
-                        })
-                      )}
-                    </div>
-                  </ScrollArea>
-                </div>
+                />
               )}
             </div>
-          </div>
-        </>
-      )}
+          </Button>
 
-      {!isCollapsed && user && (
-        <div className="flex  p-3 border-t border-[#02133B]/20">
-          <div className="flex  items-center gap-1 p-2 rounded-lg bg-[#E4EDFF]/50">
-            {/* <div className="w-8 h-8 rounded-full bg-[#02133B] flex items-center justify-center flex-shrink-0">
-              <User className="w-4 h-4 text-white" />
-            </div> */}
-            <div className="flex-1">
-              <p className="text-xs font-medium text-[#02133B] truncate">
-                {user.email}
-              </p>
+          {/* Collapsible Chat List */}
+          {!isCollapsed && expandedSection === "mentor" && (
+            <div className="mt-2">
+              <ScrollArea className="max-h-56">
+                <div className="space-y-1 pb-4">
+                  {isLoading ? (
+                    <div className="px-3 py-2 text-sm text-[#02133B]/60">
+                      Loading chats...
+                    </div>
+                  ) : chats.length === 0 ? (
+                    <div className="px-3 py-2 text-sm text-[#02133B]/60">
+                      <div className="text-center">
+                        <MessageSquare className="w-6 h-6 mx-auto mb-1 opacity-50" />
+                        <p>No chats yet</p>
+                        <p className="text-xs mt-1">
+                          Start a new conversation!
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    chats.slice(0, 15).map((chat, index) => {
+                      const isActiveChat =
+                        pathname === `/mentor/chat/${chat.id}`;
+                      const chatTitle = generateChatTitle(index);
+                      const creationDate = formatCreationDate(
+                        chat.created_at
+                      );
+
+                      return (
+                        <Button
+                          key={chat.id}
+                          variant="ghost"
+                          className={cn(
+                            "w-full justify-start h-auto p-3 text-left group transition-all duration-200",
+                            isActiveChat
+                              ? "bg-[#02133B1A] text-primary-text hover:bg-[#02133B1A]"
+                              : "text-primary-text hover:bg-[#02133B1A]"
+                          )}
+                          asChild
+                        >
+                          <Link
+                            href={`/mentor/chat/${chat.id}`}
+                            onClick={(e) => {
+                              console.log("🔄 Clicked chat:", chat.id);
+                              // For chat links, allow navigation without dialog
+                              // Chat links are always to saved chats, so no need for save dialog
+                            }}
+                          >
+                            <div className="flex flex-col gap-1.5 w-full">
+                              <div className="flex items-center gap-2">
+                                <MessageSquare className="w-3.5 h-3.5 flex-shrink-0 opacity-70" />
+                                <span className="text-sm font-medium truncate">
+                                  {chatTitle}
+                                </span>
+                              </div>
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-xs opacity-70">
+                                  Created: {creationDate}
+                                </span>
+                                <span className="text-xs opacity-60">
+                                  {formatDate(chat.updated_at)}
+                                </span>
+                              </div>
+                            </div>
+                          </Link>
+                        </Button>
+                      );
+                    })
+                  )}
+                </div>
+              </ScrollArea>
             </div>
-            <div className="">
-              <Button
-                onClick={signOut}
-                size="sm"
-                variant="ghost"
-                className="p-1 h-auto text-[#02133B] hover:bg-[#02133B]/10 "
-              >
-                <LogOut className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
+          )}
         </div>
-      )}
+{!isCollapsed && (
+  <Separator className=" bg-[#02133B]/20 flex-shrink-0 px-3" />
+)}
+
+        {/* Career Growth Section */}
+        <div className="flex-shrink-0 py-[16px] mb-0">
+          <Button
+            variant="ghost"
+            className="w-full justify-between px-3 py-2 h-auto text-left"
+            onClick={() =>
+              setExpandedSection(
+                expandedSection === "career" ? null : "career"
+              )
+            }
+          >
+            <div className="flex items-center gap-2">
+              {!isCollapsed && (
+                <h3 className="text-[16px] font-semibold text-[#02133B]">
+                  Career Growth
+                </h3>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {!isCollapsed && careerChats.length > 0 && (
+                <span className="bg-primary-text text-white text-xs font-medium px-[9.5px] py-1 rounded-full">
+                  {careerChats.length}
+                </span>
+              )}
+              {!isCollapsed && (
+                <ChevronDown
+                  className={cn(
+                    "w-4 h-4 text-primary-text transition-transform duration-200",
+                    expandedSection === "career" ? "rotate-180" : ""
+                  )}
+                />
+              )}
+            </div>
+          </Button>
+
+          {/* Collapsible Career Growth List */}
+          {!isCollapsed && expandedSection === "career" && (
+            <div className="mt-2">
+              <ScrollArea className="max-h-56">
+                <div className="space-y-1 pb-4">
+                  {isLoading ? (
+                    <div className="px-3 py-2 text-sm text-primary-bg-primary-text/60">
+                      Loading career chats...
+                    </div>
+                  ) : careerChats.length === 0 ? (
+                    <div className="px-3 py-2 text-sm text-primary-bg-primary-text/60">
+                      <div className="text-center">
+                        <Award className="w-6 h-6 mx-auto mb-1 opacity-50" />
+                        <p>No career chats yet</p>
+                        <p className="text-xs mt-1">
+                          Start your career journey!
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    careerChats.slice(0, 15).map((chat, index) => {
+                      const chatStep = careerChatSteps[chat.id] || 'discover';
+                      const isActiveChat =
+                        pathname === `/career-change/chat/${careerChatSteps[chat.id] || 'discover'}?chatId=${chat.id}`;
+                      const chatTitle = `CAREER JOURNEY ${index + 1}`;
+                      const creationDate = formatCreationDate(
+                        chat.created_at
+                      );
+
+                      return (
+                        <Button
+                          key={chat.id}
+                          variant="ghost"
+                          className={cn(
+                            "w-full justify-start h-auto p-3 text-left group transition-all duration-200",
+                            isActiveChat
+                              ? "bg-[#02133B1A] text-primary-text hover:bg-[#02133B1A]"
+                              : "text-primary-text hover:bg-[#02133B1A]"
+                          )}
+                          asChild
+                        >
+                          <Link
+                            href={`/career-change/chat/${careerChatSteps[chat.id] || 'discover'}?chatId=${chat.id}`}
+                            onClick={(e) => {
+                              console.log(
+                                "🔄 Clicked career chat:",
+                                chat.id,
+                                "Step:",
+                                careerChatSteps[chat.id] || 'discover'
+                              );
+                              // For career chat links, allow navigation without dialog
+                              // Career chat links are always to saved chats, so no need for save dialog
+                            }}
+                          >
+                            <div className="flex flex-col gap-1.5 w-full">
+                              <div className="flex items-center gap-2">
+                                <Award className="w-3.5 h-3.5 flex-shrink-0 opacity-70" />
+                                <span className="text-sm font-medium truncate">
+                                  {chatTitle}
+                                </span>
+                              </div>
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-xs opacity-70">
+                                  Created: {creationDate}
+                                </span>
+                                <span className="text-xs opacity-60">
+                                  {formatDate(chat.updated_at)}
+                                </span>
+                              </div>
+                            </div>
+                          </Link>
+                        </Button>
+                      );
+                    })
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
+          )}
+        </div>
+      </div>
+
+
+      {/* Sidebar Toggle Button */}
+      <div className="flex-shrink-0 p-3">
+        <div className="flex justify-end">
+          <Button
+            onClick={onToggle}
+            size="sm"
+            variant="ghost"
+            className="p-2 h-auto text-primary-text hover:bg-hover-blue bg-hover-blue rounded-full"
+          >
+            {isCollapsed ? (
+              <PanelRight className="w-4 h-4" />
+            ) : (
+              <PanelLeft className="w-4 h-4" />
+            )}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -644,23 +622,25 @@ function SidebarContent({
 interface SidebarProps {
   className?: string;
   isCollapsed?: boolean;
+  onToggle?: () => void;
 }
 
 export default function Sidebar({
   className,
   isCollapsed = false,
+  onToggle,
 }: SidebarProps) {
   return (
     <>
       {/* Desktop Sidebar */}
       <div
         className={cn(
-          "hidden md:flex transition-all bg-white rounded-[16px] border-[#02133B]/20 border-[1px] pr-[16px] duration-300 ",
-          isCollapsed ? "w-16" : "w-[18rem]",
+          "hidden md:flex transition-all bg-white duration-300 ",
+          isCollapsed ? "w-16" : "w-[17rem]",
           className
         )}
       >
-        <SidebarContent isCollapsed={isCollapsed} />
+        <SidebarContent isCollapsed={isCollapsed} onToggle={onToggle} />
       </div>
 
       {/* Mobile Sidebar */}
@@ -675,7 +655,7 @@ export default function Sidebar({
           </Button>
         </SheetTrigger>
         <SheetContent side="left" className="p-0 w-64">
-          <SidebarContent />
+          <SidebarContent onToggle={onToggle} />
         </SheetContent>
       </Sheet>
     </>

@@ -1,56 +1,38 @@
 "use client";
 
-import Hero from "../hero";
+import Hero from "../welcome-card";
 import { Separator } from "@radix-ui/react-separator";
 import FeatureCards, { FeatureCard } from "../cards";
-import { TrendingUp, Heart, FileText, CheckCircle } from 'lucide-react';
+import {
+  TrendingUp,
+  Heart,
+  FileText,
+  CheckCircle,
+  ArrowLeft,
+  ArrowRight,
+} from "lucide-react";
+import Header from "../header";
+import { Button } from "../ui/button";
 
 export default function Career() {
-  const careerChangeCards: FeatureCard[] = [
-    {
-      id: "discover",
-      title: "Discover",
-      description:
-        "Explore potential career paths and identify opportunities that align with your teaching skills and interests.",
-      icon: TrendingUp,
-      buttonText: "EXPLORE PATHS",
-      buttonHref: "/career-change/chat/discover",
-    },
-    {
-      id: "create",
-      title: "Create Materials",
-      description:
-        "Generate resumes and cover letters tailored to your new career direction with your teaching experience highlighted.",
-      icon: FileText,
-      buttonText: "CREATE MATERIALS",
-      buttonHref: "/career-change/chat/create",
-      disabled: true,
-    },
-    {
-      id: "make",
-      title: "Make the Leap",
-      description:
-        "Get an action plan for your job search with concrete steps, timelines, and strategies for career transition.",
-      icon: CheckCircle,
-      buttonText: "GET ACTION PLAN",
-      buttonHref: "/career-change/chat/make",
-      disabled: true,
-    },
-  ];
 
   return (
-    <div className="">
-      {/* Hero Section */}
-      <Hero
-        icon={<CheckCircle className="w-10 h-10 text-white" />}
-        title="Career Change"
-        subtitle="Transform your teaching experience into your next career opportunity with our step-by-step guidance."
-      />
+    <div>
+      <div className="sticky top-0 z-50 bg-[#F5F9FC] ">
+        <Header isCollapsed={false} title="Career Change" />
+      </div>
 
-      <Separator className="my-6" />
-
-      {/* Feature Cards */}
-      <FeatureCards cards={careerChangeCards}/>
+      <div className="flex flex-col items-center justify-start">
+        <img src="/career.png" alt="" className="w-[70%]" />
+      </div>
+      <div className="flex flex-col items-center  justify-start">
+        <Button className="bg-primary-gold text-white hover:cursor-pointer hover:bg-primary-gold" onClick={() => {
+          window.location.href = "/career-change/chat/discover";
+        }}>
+          GET STARTED
+          <ArrowRight className="w-4 h-4" />
+        </Button>
+      </div>
     </div>
   );
 }

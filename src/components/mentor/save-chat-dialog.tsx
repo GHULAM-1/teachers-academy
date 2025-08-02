@@ -1,59 +1,68 @@
 import { Button } from "@/components/ui/button";
+import { Download, X } from "lucide-react";
 
 interface SaveChatDialogProps {
   isOpen: boolean;
   onSave: () => void;
   onDiscard: () => void;
   onContinue?: () => void;
+  onClose?: () => void;
   chatId?: string;
 }
 
-export default function SaveChatDialog({ isOpen, onSave, onDiscard, onContinue, chatId }: SaveChatDialogProps) {
+export default function SaveChatDialog({ isOpen, onSave, onDiscard, onContinue, onClose, chatId }: SaveChatDialogProps) {
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
       <div className="absolute inset-0 bg-black/50" />
-      
-      {/* Dialog */}
       <div className="relative bg-white rounded-lg shadow-lg max-w-md w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+        {/* Close button */}
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="absolute top-4 left-4 text-gray-600 hover:text-gray-800"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        )}
+        
         <div className="text-center">
-          <div className="mb-4">
+          <div className="mb-6">
+            {/* Download icon */}
             <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-[#E4EDFF] mb-4">
-              <svg className="h-6 w-6 text-[#02133B]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-              </svg>
+              <Download className="h-6 w-6 text-[#02133B]" />
             </div>
+            
             <h3 className="text-lg font-medium text-[#02133B] mb-2">
-              Save this conversation?
+              Save This Mentoring Session
             </h3>
             <p className="text-sm text-gray-600">
-              Do you want to save this mentoring session to your chat history? If you don't save it, the conversation will be permanently deleted.
+              Your chat history will be saved. You can review this conversation at any time.
             </p>
           </div>
-          
-          <div className="flex flex-col gap-3 justify-center">
+
+          <div className="flex flex-col gap-3">
             <div className="flex gap-3 justify-center">
               <Button
                 variant="outline"
                 onClick={onDiscard}
-                className="px-6"
+                className="px-6 bg-[#D40000]/15 text-[#D40000] hover:text-[#D40000] hover:cursor-pointer border-red-200 hover:bg-[#D40000]/15"
               >
-                Delete Chat
+                Discard
               </Button>
               <Button
                 onClick={onSave}
-                className="px-6 bg-[#02133B] hover:bg-[#02133B]/90"
+                className="px-6 bg-[#02133B] hover:bg-[#02133B] hover:cursor-pointer text-white"
               >
-                Save Chat
+                Save and Close
               </Button>
             </div>
             {onContinue && (
               <Button
-                variant="ghost"
+                variant="outline"
                 onClick={onContinue}
-                className="px-6 text-gray-600 hover:text-gray-800"
+                className="px-6 border-[#02133B] hover:cursor-pointer text-[#02133B] hover:bg-[#02133B] hover:text-white"
               >
                 Continue Chat
               </Button>
