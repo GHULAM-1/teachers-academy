@@ -63,13 +63,17 @@ export default function AuthProvider({ children }: AuthProviderProps) {
   }, [supabase.auth]);
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error('Error signing out:', error);
-    } else {
-      setUser(null);
-      // Redirect to auth page
-      window.location.href = '/auth';
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Error signing out:', error);
+      } else {
+        setUser(null);
+        // Redirect to landing page for unauthenticated users
+        window.location.href = '/';
+      }
+    } catch (error) {
+      console.error('Error during sign out:', error);
     }
   };
 

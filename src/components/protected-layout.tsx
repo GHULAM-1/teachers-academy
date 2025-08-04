@@ -18,6 +18,10 @@ export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
   // Routes that don't require authentication
   const publicRoutes = ['/auth', '/'];
   const isPublicRoute = publicRoutes.includes(pathname);
+  
+  // Routes that should show without layout (landing page)
+  const noLayoutRoutes = ['/'];
+  const shouldShowLayout = !noLayoutRoutes.includes(pathname);
 
   useEffect(() => {
     if (loading) return; // Don't do anything while loading
@@ -33,6 +37,12 @@ export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
       router.push('/mentor');
       return;
     }
+    
+    // If user is authenticated and on landing page, redirect to home
+    if (user) {
+      router.push('/home');
+      return;
+    }
   }, [user, loading, pathname, isPublicRoute, router]);
 
   // Show loading state only in content area, not full screen
@@ -40,7 +50,7 @@ export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
     return <LayoutContent isLoading={true}><div></div></LayoutContent>;
   }
 
-  // Show auth page without layout for unauthenticated users
+  // Show landing page without layout for unauthenticated users
   if (!user && isPublicRoute) {
     return <>{children}</>;
   }

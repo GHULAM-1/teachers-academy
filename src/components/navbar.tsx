@@ -70,14 +70,39 @@ export default function Navbar() {
     }, [user]);
 
     const handleSignOut = async () => {
-        await supabase.auth.signOut();
-        router.push('/');
+        try {
+          await supabase.auth.signOut();
+          // Clear any local state immediately
+          setDisplayName('');
+          setIsLoading(false);
+          // Redirect to landing page
+          window.location.href = '/';
+        } catch (error) {
+          console.error('Error signing out:', error);
+        }
       };
 
       const handleProfile = () => {
         router.push('/user-profile');
       };
   
+
+  // Don't render navbar content while loading or if no user
+  if (isLoading || !user) {
+    return (
+      <nav className="w-full max-w-[1440px] mx-auto bg-primary-blue text-white px-6 py-3 flex items-center justify-between">
+        {/* Logo and Brand */}
+        <div className="flex items-center space-x-3">
+          <img src="/logo-white.png" alt="logo" className="w-[100px] h-[30px]" />
+        </div>
+        
+        {/* Show loading state on the right */}
+        <div className="flex items-center space-x-4">
+          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      </nav>
+    );
+  }
 
   return (
     <nav className=" w-full max-w-[1440px] mx-auto bg-primary-blue text-white px-6 py-3 flex items-center justify-between">
