@@ -69,7 +69,7 @@ export default function PremiumUpgradeDialog({
                 onClick={handleUpgradeClick}
                 className="bg-primary-gold hover:bg-primary-gold text-white font-medium py-3 rounded-lg flex items-center justify-center space-x-2 hover:cursor-pointer"
               >
-                <span>✨ Upgrade to Premium for $28</span>
+                <span>✨ Upgrade to Premium for $19</span>
               </Button>
             </div>
           </div>
