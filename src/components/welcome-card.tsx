@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
 import { ArrowRight } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface HeroProps {
   className?: string;
@@ -9,6 +10,7 @@ interface HeroProps {
 export default function Hero({
   className,
 }: HeroProps) {
+  const router = useRouter();
   return (
     <div
       className={cn(
@@ -31,7 +33,7 @@ export default function Hero({
           <h2 className="text-[16px] mb-[32px] ">
             Your general guide for career advice and feedback
           </h2>
-          <Button variant="outline" className="hover:bg-transparent hover:cursor-pointer bg-transparent border-[2px] border-primary-gold rounded-[8px]">
+          <Button variant="outline" onClick={() => router.push("/mentor")} className="hover:bg-transparent hover:cursor-pointer bg-transparent border-[2px] border-primary-gold rounded-[8px]">
             <p className="text-[16px] font-semibold text-primary-gold">ASK AI MENTOR</p>
             <ArrowRight className="w-4 h-4 text-primary-gold" />
           </Button>
