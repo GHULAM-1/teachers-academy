@@ -16,7 +16,7 @@ export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
   const router = useRouter();
 
   // Routes that don't require authentication
-  const publicRoutes = ['/auth', '/landing-page'];
+  const publicRoutes = ['/auth', '/'];
   const isPublicRoute = publicRoutes.includes(pathname);
 
   useEffect(() => {

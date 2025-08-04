@@ -34,7 +34,7 @@ const sidebarItems: SidebarItem[] = [
   {
     id: "home",
     label: "Home",
-    href: "/",
+    href: "/home",
     icon: Home,
   },
   {
