@@ -238,7 +238,7 @@
 //   if (showLoader) {
 //     return (
 //       <div className="flex flex-col items-center justify-center min-h-screen">
-//         <img src={"/waiting-logo.png"} alt="Teachers Academy" />
+//         <img src={"/waiting-logo.png"} alt="Teachers Next" />
 //         <h2 className="mt-[32px] text-[25px] font-bold text-[#02133B]">Crafting Your Personalized Plan</h2>
 //         <p className="mt-[32px] text-[16px] text-[#02133B]">This will just take a moment...</p>
 //         {error && (

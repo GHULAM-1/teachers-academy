@@ -120,7 +120,7 @@ export default function AuthForm() {
           <div className="flex justify-center mb-4">
             <Image
               src="/logo.png"
-              alt="Teachers Academy"
+              alt="Teachers Next"
               width={150}
               height={46}
             />
@@ -130,7 +130,7 @@ export default function AuthForm() {
           </CardTitle>
           <CardDescription>
             {isSignUp 
-              ? 'Join Teachers Academy to start your AI mentoring journey'
+              ? 'Join Teachers Next to start your AI mentoring journey'
               : 'Sign in to continue your AI mentoring journey'
             }
           </CardDescription>

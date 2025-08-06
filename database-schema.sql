@@ -1,4 +1,4 @@
--- Database schema for Teachers Academy Chat Persistence
+-- Database schema for Teachers Next Chat Persistence
 -- Run this in your Supabase SQL Editor
 
 -- Create chats table

@@ -14,8 +14,8 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "Teachers Academy",
-  description: "Teachers Academy",
+  title: "Teachers Next",
+  description: "Teachers Next",
 };
 
 export default function RootLayout({

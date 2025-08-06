@@ -25,7 +25,7 @@ export default function LandingPage() {
             <div className="flex items-center space-x-2">
               <img
                 src="/logo.png"
-                alt="Teachers Academy"
+                alt="Teachers Next"
                 className=""
               />
             </div>

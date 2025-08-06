@@ -6,7 +6,7 @@ Create a file named `.env.local` in your project root with the following content
 
 ```env
 # ===================================
-# Teachers Academy Environment Variables
+# Teachers Next Environment Variables
 # ===================================
 
 # AI Model Configuration
@@ -89,7 +89,7 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhY
 
 ## File Location:
 ```
-teachers-academy/
+teachers-next/
 ├── .env.local          ← Create this file here
 ├── package.json
 ├── src/

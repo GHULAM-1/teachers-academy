@@ -1,4 +1,4 @@
--- Database schema for Teachers Academy Chat Persistence with User Authentication
+-- Database schema for Teachers Next Chat Persistence with User Authentication
 -- Run this in your Supabase SQL Editor
 
 -- Create profiles table for user information

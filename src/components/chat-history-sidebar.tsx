@@ -204,14 +204,14 @@ function ChatHistorySidebarContent({
             {isCollapsed ? (
               <Image
                 src="/logo1.png"
-                alt="Teachers Academy"
+                alt="Teachers Next"
                 width={32}
                 height={32}
               />
             ) : (
               <Image
                 src="/logo.png"
-                alt="Teachers Academy"
+                alt="Teachers Next"
                 width={123}
                 height={38}
               />

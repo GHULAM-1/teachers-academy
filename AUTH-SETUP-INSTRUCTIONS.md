@@ -10,7 +10,7 @@ Your chat application now supports **user authentication** with **personal chat 
 ### 1.1 Create Supabase Project
 1. Go to [supabase.com](https://supabase.com)
 2. Click "New Project"
-3. Choose organization and project name: "teachers-academy"
+3. Choose organization and project name: "teachers-next"
 4. Choose a strong database password
 5. Wait for project to be ready (~2 minutes)
 
