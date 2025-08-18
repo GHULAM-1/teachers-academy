@@ -129,27 +129,34 @@ export default function CareerChat({
     console.log("💬 Career Chat component initialized with chatId:", chatId);
   }, [chatId]);
 
-  // Add initial trigger message to start AI conversation
+  // Add initial trigger message to start AI conversation ONLY for NEW chats
   useEffect(() => {
     console.log("🔍 Career Chat useEffect check:", {
       messagesLength: messages.length,
+      initialMessagesLength: initialMessages.length,
       hasStarted: hasStartedRef.current,
+      isExistingChat,
       chatId: chatId?.substring(0, 8) + "...",
     });
 
-    if (messages.length === 0 && !hasStartedRef.current && !isLoading) {
-      console.log('🚀 Career Chat: Auto-starting with "begin" message');
+    // Only auto-start for NEW chats (no initialMessages) and when no messages exist
+    if (messages.length === 0 && initialMessages.length === 0 && !hasStartedRef.current && !isLoading) {
+      console.log('🚀 Career Chat: Auto-starting NEW chat with "begin" message');
       hasStartedRef.current = true;
 
       // Check if there's already a "begin" message in the messages array
       const hasBeginMessage = messages.some((m) => m.content === "begin");
       if (!hasBeginMessage) {
+        console.log('✅ Career Chat: Adding "begin" message for new chat');
         append({ role: "user", content: "begin" });
       } else {
         console.log('⚠️ "begin" message already exists, skipping...');
       }
+    } else if (initialMessages.length > 0) {
+      console.log('📚 Career Chat: Existing chat detected, skipping auto-start');
+      hasStartedRef.current = true; // Mark as started to prevent future auto-start
     }
-  }, [messages.length, chatId, isLoading, append]);
+  }, [messages.length, initialMessages.length, chatId, isLoading, append, isExistingChat]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -529,9 +536,16 @@ export default function CareerChat({
                               return null;
                             }
                             
+                            // Clean step markers and other markers from content before displaying
+                            const cleanedContent = content
+                              .replace("AUDIO_MESSAGE", "")
+                              .replace(/\[STEP:[^\]]+\]/g, "") // Remove all [STEP:xxx] markers
+                              .replace(/\[CTA_BUTTON:[^\]]+\]/g, "") // Remove CTA button markers
+                              .trim();
+                            
                             return (
                               <div className="text-base text-[#02133B] font-normal bg-transparent whitespace-pre-wrap">
-                                {content.replace("AUDIO_MESSAGE", "").trim()}
+                                {cleanedContent}
                               </div>
                             );
                           })()}

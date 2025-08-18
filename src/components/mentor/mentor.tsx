@@ -27,7 +27,6 @@ export default function Mentor({
   const [isLoading, setIsLoading] = useState(true);
   const [showChat, setShowChat] = useState(false);
   const [conversationHistory, setConversationHistory] = useState<Message[]>([]);
-  const [recommendation, setRecommendation] = useState<string>("");
   const [hasResumedState, setHasResumedState] = useState(false);
   const [profileChecked, setProfileChecked] = useState(false);
   const [needsProfile, setNeedsProfile] = useState(false);
@@ -105,35 +104,7 @@ export default function Mentor({
     setCurrentMessages(messages);
   }, []);
 
-  // Function to count user answers (matching step-chat logic EXACTLY)
-  const getCurrentUserAnswerCount = (messages: Message[]) => {
-    return messages.filter((m, i) => {
-      if (m.role !== "user") return false;
-      // Skip the initial trigger messages (matching backend logic EXACTLY)
-      if (
-        i === 0 &&
-        (!m.content ||
-          m.content.trim() === "" ||
-          m.content.trim() === "start" ||
-          m.content.trim() === "begin")
-      )
-        return false;
-      return m.content && m.content.trim() !== "";
-    }).length;
-  };
 
-  const handleChatReady = useCallback(() => {
-    setIsLoading(false);
-    setShowChat(true);
-  }, []);
-
-  console.log("💬 Mentor component:", {
-    propChatId,
-    chatId,
-    isExistingChat: !!propChatId,
-    hasValidChatId: !!chatId,
-    initialMessagesCount: initialMessages.length,
-  });
 
   // Listen for custom save dialog events from sidebar
   useEffect(() => {
@@ -194,7 +165,6 @@ export default function Mentor({
     if (initialMessages.length > 0 && !hasResumedState) {
       setHasResumedState(true);
       setConversationHistory(initialMessages);
-      setRecommendation(initialMessages[0]?.content || "");
       
       // Show loading for a moment, then show chat
       setTimeout(() => {
@@ -270,7 +240,6 @@ export default function Mentor({
       ) : (
         <Chat
           conversationHistory={stuckMode ? [] : conversationHistory}
-          recommendation={stuckMode ? "" : recommendation}
           chatId={chatId}
           onMessagesUpdate={handleMessagesUpdate}
           stuckMode={stuckMode}

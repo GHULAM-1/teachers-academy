@@ -4,6 +4,7 @@ import { streamText, appendResponseMessages } from 'ai';
 import { Message } from 'ai';
 import { saveChat, updateChatTitle, saveChatWithUser, updateChatTitleWithUser } from '@/lib/chat-store';
 import { createServerSupabaseClient, createAdminSupabaseClient } from '@/lib/supabase';
+import { MentorConfigService } from '@/lib/mentor-config';
 import { cookies } from 'next/headers';
 import dotenv from 'dotenv';
 
@@ -47,7 +48,7 @@ export async function POST(req: Request) {
 
   // Count user messages to determine if it's the initial stuck message
   const userMessageCount = messages.filter(msg => msg.role === 'user').length;
-  console.log(`🔢 API user message count: ${userMessageCount}/8`);
+  console.log(`🔢 API user message count: ${userMessageCount}`);
 
   // Check if this is the initial stuck message
   const isInitialStuckMessage = messages.length === 1 && 
@@ -99,65 +100,21 @@ export async function POST(req: Request) {
   console.log(`🔑 OpenAI API Key exists:`, !!process.env.OPENAI_API_KEY);
   
   try {
-  const result = await streamText({
-      model: openai('gpt-3.5-turbo'),
-    messages,
-      system: `You are a specialized AI Mentor helping teachers who are feeling stuck in their career transition. They've already chosen a career path and are now struggling with the next steps.
+    // Get config from SheetDB
+    const configService = MentorConfigService.getInstance();
+    const config = await configService.getConfig();
 
-**USER INFORMATION:**
-Name: ${profile?.preferred_name || 'there'}
-Career Goal: ${profile?.career_goals || 'Not specified'}
+    // Replace placeholders in the stuck mode prompt
+    const systemPrompt = config.stuckModePrompt
+      .replace(/{{preferred_name}}/g, profile?.preferred_name || 'there')
+      .replace(/{{role_title}}/g, profile?.role_title || 'Not specified')
+      .replace(/{{career_goals}}/g, profile?.career_goals || 'Not specified')
+      .replace(/{{biggest_obstacle}}/g, profile?.biggest_obstacle || 'Not specified');
 
-**YOUR ROLE:**
-You are a warm, empathetic, and encouraging mentor specifically designed to help teachers who are feeling stuck in their career transition.
-
-**CRITICAL: ALWAYS RESPOND IMMEDIATELY**
-- You MUST respond to every message, especially the initial "feeling stuck" message
-- Do not wait for any confirmation or additional input
-- Provide immediate, helpful guidance
-- Acknowledge their feelings and provide actionable advice right away
-
-**YOUR APPROACH:**
-- Be extremely warm, empathetic, and encouraging
-- Acknowledge their feelings of being stuck (it's completely normal)
-- Ask them about their chosen career path
-- Ask them what specific challenges they're facing
-- Provide specific encouragement and actionable advice
-- Help them break down their challenges into manageable steps
-- Remind them of their strengths and progress they've already made
-- Focus on practical, actionable solutions
-
-**RESPONSE STYLE:**
-- Use warm, encouraging language
-- Acknowledge their feelings: "I understand feeling stuck can be really challenging..."
-- Ask about their chosen career: "What career path have you chosen?"
-- Ask about specific obstacles: "What specific challenges are you facing?"
-- Provide concrete, actionable steps
-- Remind them of their progress and strengths
-- Be specific and practical in your advice
-
-**EXAMPLE RESPONSE:**
-"I understand feeling stuck can be really challenging, especially when you're trying to make a career transition. It's completely normal to hit roadblocks along the way.
-
-What career path have you chosen? And what specific challenges are you facing right now? I'd love to help you break this down into manageable steps.
-
-Remember, every teacher I've worked with has faced similar challenges, and you're already taking the right steps by reaching out for support. Let's figure out what's holding you back and create a clear path forward."
-
-**KEY PRINCIPLES:**
-- Always acknowledge their feelings first
-- Ask about their chosen career path
-- Ask about specific obstacles they're facing
-- Provide actionable, step-by-step advice
-- Remind them of their strengths and progress
-- Be encouraging and supportive throughout
-- Focus on practical solutions they can implement immediately
-
-**TONE:**
-- Warm, empathetic, and encouraging
-- Use phrases like "I understand", "That's completely normal", "You're not alone"
-- Focus on their strengths and progress
-- Be specific and actionable in your advice
-- Always end with encouragement and next steps`,
+    const result = await streamText({
+      model: openai('gpt-4o'),
+      messages,
+      system: systemPrompt,
     async onFinish({ response }) {
       try {
         // Get the latest timestamp from existing messages to ensure proper sequencing

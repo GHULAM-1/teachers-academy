@@ -4,10 +4,6 @@ import { redirect } from 'next/navigation';
 import { Message } from 'ai';
 import Mentor from '@/components/mentor/mentor';
 
-/**
- * Following AI SDK pattern: https://ai-sdk.dev/docs/ai-sdk-ui/chatbot-message-persistence
- * Loads existing chat and displays it at /mentor/chat/[chatid]
- */
 export default async function Page(props: { 
   params: Promise<{ chatid: string }>;
   searchParams: Promise<{ mode?: string }>;

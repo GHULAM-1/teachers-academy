@@ -4,15 +4,12 @@ import { useChat, Message } from "ai/react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertCircle, ArrowRight, Send, TriangleAlert } from "lucide-react";
+import { ArrowRight, Send, TriangleAlert } from "lucide-react";
 import Image from "next/image";
 import ChatSkeleton from "@/components/ui/chat-skeleton";
-import QuestionProgress from "@/components/ui/question-progress";
-import CraftingLoader from "@/components/ui/crafting-loader";
 
 interface ChatProps {
   conversationHistory?: Message[];
-  recommendation?: string;
   chatId?: string;
   onMessagesUpdate?: (messages: Message[]) => void;
   stuckMode?: boolean;
@@ -20,7 +17,6 @@ interface ChatProps {
 
 export default function Chat({
   conversationHistory = [],
-  recommendation,
   chatId,
   onMessagesUpdate,
   stuckMode = false,
@@ -28,10 +24,6 @@ export default function Chat({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [showSkeleton, setShowSkeleton] = useState(true);
-  const [currentQuestion, setCurrentQuestion] = useState(1);
-  const [showCraftingLoader, setShowCraftingLoader] = useState(false);
-  const [hasShownCraftingLoader, setHasShownCraftingLoader] = useState(false);
-  const [hasRecommendation, setHasRecommendation] = useState(false);
   const hasStartedRef = useRef(false);
 
   // Let Vercel AI SDK handle everything - conversation history already contains messages from 1st recommendation onwards
@@ -74,10 +66,6 @@ export default function Chat({
       console.log('🚀 Chat: Auto-starting with "begin" message');
       hasStartedRef.current = true;
 
-      // Reset crafting loader state for new chats
-      setHasShownCraftingLoader(false);
-      setShowCraftingLoader(false);
-
       // Check if there's already a "begin" message in the messages array
       const hasBeginMessage = messages.some((m) => m.content === "begin");
       if (!hasBeginMessage) {
@@ -96,10 +84,6 @@ export default function Chat({
         conversationHistory.length
       );
       setMessages(conversationHistory);
-
-      // Reset crafting loader state for existing chats
-      setHasShownCraftingLoader(false);
-      setShowCraftingLoader(false);
     }
   }, [conversationHistory, messages.length]);
 
@@ -108,89 +92,25 @@ export default function Chat({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Notify parent of message changes and track questions
+  // Notify parent of message changes
   useEffect(() => {
     if (onMessagesUpdate) {
       onMessagesUpdate(messages);
     }
 
-    // Count user messages (excluding trigger messages)
-    const userMessages = messages.filter(
-      (m) => m.role === "user" && m.id !== "hidden-trigger"
-    );
-
-    // Update question count and check for recommendation
-    if (userMessages.length <= 8) {
-      console.log("🔢 Chat: Updating question count to:", userMessages.length);
-      setCurrentQuestion(userMessages.length);
-    } else {
-      // If we have more than 8 user messages, we're in recommendation phase
-      console.log(
-        "🔢 Chat: In recommendation phase, setting question count to 8"
-      );
-      setCurrentQuestion(8);
-    }
-
-    // Check if recommendation is complete (after 8 questions and AI has given final response)
-    const assistantMessages = messages.filter((m) => m.role === "assistant");
-    const lastAssistantMessage =
-      assistantMessages[assistantMessages.length - 1];
-    const hasRecommendationNow =
-      userMessages.length >= 8 &&
-      assistantMessages.length >= 9 && // 9th AI message is the recommendation
-      lastAssistantMessage &&
-      lastAssistantMessage.content &&
-      !isLoading; // Only set recommendation when AI is done responding
-
-    // Update hasRecommendation state
-    setHasRecommendation(!!hasRecommendationNow);
-
-    console.log("🔍 Recommendation check:", {
-      userMessagesLength: userMessages.length,
-      hasRecommendationNow,
-      currentQuestion,
-      showCraftingLoader,
-      hasRecommendation: !!hasRecommendationNow,
-    });
-
-    // Hide crafting loader when recommendation is complete
-    if (hasRecommendationNow && showCraftingLoader) {
-      console.log("🎯 Hiding crafting loader - recommendation complete");
-      setShowCraftingLoader(false);
-    }
-
-    // Show crafting loader only once after 8th question
-    console.log("🔍 Crafting loader trigger check:", {
-      userMessagesLength: userMessages.length,
-      hasShownCraftingLoader,
-      shouldTrigger: userMessages.length >= 8 && !hasShownCraftingLoader,
-    });
-
-    // Show crafting loader when we reach exactly 8 questions
-    if (
-      userMessages.length === 8 &&
-      !hasShownCraftingLoader &&
-      !hasRecommendation
-    ) {
-      console.log("🎯 Showing crafting loader after 8th question");
-      setShowCraftingLoader(true);
-      setHasShownCraftingLoader(true);
-      setShowSkeleton(false);
-    }
-
-    // Also show crafting loader when AI starts responding after 8 questions
-    if (
-      userMessages.length >= 8 &&
-      isLoading &&
-      !hasShownCraftingLoader &&
-      !hasRecommendation
-    ) {
-      console.log(
-        "🎯 Showing crafting loader when AI starts responding after 8th question"
-      );
-      setShowCraftingLoader(true);
-      setHasShownCraftingLoader(true);
-      setShowSkeleton(false);
+    // Debug logging for new messages
+    if (messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage.role === "assistant") {
+        console.log("🆕 New AI Message Received:", {
+          messageId: lastMessage.id,
+          content: lastMessage.content,
+          hasCTAPattern: lastMessage.content?.includes("[CTA_BUTTON:"),
+          ctaMatch: lastMessage.content?.match(/\[CTA_BUTTON:([^\]]+)\]/),
+          contentLength: lastMessage.content?.length,
+          fullMessage: lastMessage,
+        });
+      }
     }
 
     // Check if streaming has started
@@ -203,31 +123,32 @@ export default function Chat({
       ) {
         setIsStreaming(true);
         setShowSkeleton(false); // Hide skeleton when AI starts streaming
-        // Keep crafting loader visible while AI is streaming
       }
     } else if (!isLoading) {
       setIsStreaming(false);
-      // Don't hide crafting loader - let it stay visible until recommendation is complete
     }
 
     // Hide skeleton when we have messages and are not in initial loading
     if (messages.length > 0 && showSkeleton) {
       setShowSkeleton(false);
     }
-  }, [messages, onMessagesUpdate, isLoading, showCraftingLoader, showSkeleton]);
+  }, [messages, onMessagesUpdate, isLoading, showSkeleton]);
 
-  const handleCtaClick = () => {
-    // Check the recommendation text to determine which path was recommended
-    const recommendationLower = (recommendation || "").toLowerCase();
-
-    if (recommendationLower.includes("passive income")) {
-      window.location.href = "/passive-income";
-    } else if (recommendationLower.includes("career change")) {
-      window.location.href = "/career-change";
-    } else if (recommendationLower.includes("teaching business")) {
-      window.location.href = "/teaching";
-    } else {
-      window.location.href = "/mentor";
+  const handleCtaClick = (ctaText: string) => {
+    // Redirect based on CTA button text
+    switch (ctaText) {
+      case "Start Teaching Business":
+        window.location.href = "/teaching-business";
+        break;
+      case "Build Passive Income":
+        window.location.href = "/passive-income";
+        break;
+      case "Explore Career Change":
+        window.location.href = "/career-change";
+        break;
+      default:
+        // Fallback to mentor page
+        window.location.href = "/mentor";
     }
   };
 
@@ -236,46 +157,8 @@ export default function Chat({
     return <ChatSkeleton />;
   }
 
-  // Show crafting loader after 8 questions (but not when we have a recommendation)
-  console.log("🔍 Crafting loader check:", {
-    showCraftingLoader,
-    hasRecommendation,
-    shouldShow: showCraftingLoader && !hasRecommendation,
-  });
-  if (showCraftingLoader && !hasRecommendation) {
-    return <CraftingLoader />;
-  }
-
   return (
     <div className="max-w-full flex flex-col h-[calc(100vh-200px)] mx-auto">
-      {/* Fixed Question Progress Bar - Show only for first 8 questions and not after completion */}
-      {(() => {
-        const shouldShow =
-          currentQuestion < 8 && currentQuestion >= 0 && !hasRecommendation;
-        console.log("🔍 Progress bar check:", {
-          currentQuestion,
-          hasRecommendation,
-          shouldShow,
-        });
-        return shouldShow;
-      })() && (
-        <div className="w-full max-w-[1200px] mx-auto p-4 bg-white rounded-lg flex-shrink-0">
-          <div className="w-full max-w-xl mx-auto">
-            <div className="text-center">
-              <h3 className="text-[16px] text-primary-text">
-                Question {currentQuestion} of 8
-              </h3>
-              <div className="w-full h-2 bg-gray-200 rounded-full">
-                <div
-                  className="h-2 bg-primary-text rounded-full transition-all duration-300"
-                  style={{ width: `${(currentQuestion / 8) * 100}%` }}
-                ></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Scrollable Chat Messages Area */}
       <div className="flex flex-col bg-white rounded-lg gap-4 py-2 flex-1 overflow-y-auto scroll-smooth w-full">
         <div className="px-4 py-4 bg-white max-w-[800px] mx-auto w-full">
@@ -290,6 +173,17 @@ export default function Chat({
                   m.content?.trim() === ""))
             ) {
               return null;
+            }
+
+            // Debug logging for CTA detection
+            if (m.role === "assistant") {
+              console.log(`🔍 Message ${i} CTA Debug:`, {
+                messageId: m.id,
+                content: m.content,
+                hasCTAPattern: m.content?.includes("[CTA_BUTTON:"),
+                ctaMatch: m.content?.match(/\[CTA_BUTTON:([^\]]+)\]/),
+                contentLength: m.content?.length,
+              });
             }
 
             // Clean CTA button text from message content for display
@@ -335,12 +229,20 @@ export default function Chat({
                     {hasCTA && ctaMatch && (
                       <div className="flex justify-start ml-4">
                         <Button
-                          onClick={handleCtaClick}
+                          onClick={() => handleCtaClick(ctaMatch[1])}
                           className="bg-[#E4EDFF] hover:cursor-pointer hover:bg-[#E4EDFF] text-[#02133B] font-semibold px-6 py-2 rounded-[12px] transition-all duration-200 hover:border-[#02133B]/40"
                         >
                           {ctaMatch[1]}
                           <ArrowRight className="w-4 h-4 ml-2" />
                         </Button>
+                      </div>
+                    )}
+
+                    {/* Debug logging for CTA button display */}
+                    {m.role === "assistant" && (
+                      <div className="text-xs text-gray-400 ml-4">
+                        CTA Debug: hasCTA={hasCTA.toString()}, ctaMatch=
+                        {ctaMatch ? ctaMatch[1] : "null"}
                       </div>
                     )}
                   </div>
